@@ -2,7 +2,7 @@
 
 PIRT 在 APK 里打包一个 **arm64 Debian rootfs**（`tar.gz` blob）。本文说明如何从公开源重新构建它。
 
-> 当前提供的是可重复执行的构建流程。Debian 由 `debootstrap` 生成 minbase，Node.js 锁定 SHA-256，Pi 锁定顶层包版本；apt 依赖取构建时仓库状态，npm 传递依赖未用仓库内 lockfile 锁定。后续重建可能得到不同的 SHA-256。
+> 当前提供的是可重复执行的构建流程。Debian 由 `debootstrap` 生成 minbase，Node.js 锁定 SHA-256，OpenCode 锁定顶层包版本；apt 依赖取构建时仓库状态，npm 传递依赖未用仓库内 lockfile 锁定。后续重建可能得到不同的 SHA-256。
 
 ## 构建产物
 
@@ -64,7 +64,7 @@ echo "version=$VERSION size=$SIZE sha256=$SHA256"
 - Debian 13.6（`trixie`）arm64 minbase（`debootstrap --variant=minbase`）
 - apt：`xfce4`、`tigervnc-standalone-server`、`xdg-utils`、`git` 等（`--no-install-recommends`；本 fork 不再安装 `novnc`/`websockify`）
 - Node.js 官方 arm64 tarball
-- `@earendil-works/pi-coding-agent`（npm 全局安装）
+- `opencode-ai`（npm 全局安装，锁定版本）与 GUI/MCP 工具链（ripgrep、jq、xdotool、scrot、wmctrl、AT-SPI）
 
 ## 校验 blob
 

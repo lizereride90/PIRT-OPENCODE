@@ -11,8 +11,9 @@
     "git": "2.47.2",
     "python": "3.13",
     "node": "22.20.0",
-    "pi": "0.84.1",
-    "piPackage": "@earendil-works/pi-coding-agent"
+    "opencode": "1.18.34",
+    "opencodePackage": "opencode-ai",
+    "openComputerUse": "1.2.0"
   },
   "graphics": {
     "tigervnc": "1.14.1",

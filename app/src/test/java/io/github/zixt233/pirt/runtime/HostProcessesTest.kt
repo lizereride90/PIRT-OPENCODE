@@ -16,7 +16,7 @@ class HostProcessesTest {
 
     @Test
     fun labelsKnownRuntimeCommands() {
-        assertEquals("PIRT Agent", hostProcessLabel("node", "/usr/local/bin/node /usr/local/lib/pirt/pirt-control-bridge.mjs"))
+        assertEquals("PIRT Agent", hostProcessLabel("opencode", "/usr/local/bin/opencode serve --hostname 127.0.0.1 --port 4096"))
         assertEquals("PRoot", hostProcessLabel("libproot_exec.s", "/data/app/x/lib/arm64/libproot_exec.so --kill-on-exit"))
         assertEquals("PowerNukkitX", hostProcessLabel("java", "java -jar PowerNukkitX.jar"))
         assertEquals("PIRT", hostProcessLabel("om.example.pirt", "io.github.zixt233.pirt"))
@@ -26,10 +26,10 @@ class HostProcessesTest {
     @Test
     fun onlyWorkspaceProcessesAreStoppable() {
         val java = HostProcess(300, 1, "java", "java -jar server.jar", HostProcessKind.WORKSPACE)
-        val pi = HostProcess(301, 1, "node", "/usr/local/lib/pirt/pirt-control-bridge.mjs", HostProcessKind.PI_RUNTIME)
+        val agent = HostProcess(301, 1, "opencode", "/usr/local/bin/opencode serve", HostProcessKind.AGENT_RUNTIME)
         val app = HostProcess(302, 1, "om.example.pirt", "io.github.zixt233.pirt", HostProcessKind.APP)
         assertEquals(true, java.stoppable)
-        assertEquals(false, pi.stoppable)
+        assertEquals(false, agent.stoppable)
         assertEquals(false, app.stoppable)
     }
 
@@ -37,8 +37,8 @@ class HostProcessesTest {
     fun buildsNestedProcessForest() {
         val processes = listOf(
             HostProcess(100, 1, "om.example.pirt", "io.github.zixt233.pirt", HostProcessKind.APP),
-            HostProcess(200, 100, "libproot_exec.s", "libproot_exec.so", HostProcessKind.PI_RUNTIME),
-            HostProcess(300, 200, "node", "pirt-control-bridge.mjs", HostProcessKind.PI_RUNTIME),
+            HostProcess(200, 100, "libproot_exec.s", "libproot_exec.so", HostProcessKind.AGENT_RUNTIME),
+            HostProcess(300, 200, "opencode", "opencode serve", HostProcessKind.AGENT_RUNTIME),
             HostProcess(400, 300, "bash", "bash -c java -jar server.jar", HostProcessKind.WORKSPACE),
             HostProcess(500, 1, "java", "java -jar server.jar", HostProcessKind.WORKSPACE),
         )

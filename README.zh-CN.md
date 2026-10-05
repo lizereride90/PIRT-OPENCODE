@@ -1,4 +1,4 @@
-# PIRT — Pi Runtime on PRoot（TigerVNC + 内置 AVNC fork）
+# PIRT-OPENCODE — OpenCode Runtime on PRoot（TigerVNC + 内置 AVNC）
 
 **一台装在手机里的 AI Linux 电脑。**
 
@@ -10,7 +10,7 @@
 
 PIRT 让你**直接通过 AI Agent 在 Android 手机上执行命令、处理文件、开发项目，并使用完整的 Linux 桌面。**
 
-PIRT 深度集成 Pi SDK，为 Pi 会话提供移动端原生的交互体验。Pi 运行在其中的 Debian 环境里，并与 Shell、桌面、Android 系统文件管理器和其他应用共享持久化的 `/workspace`。
+PIRT 深度集成 OpenCode serve API，为 OpenCode 会话提供移动端原生的交互体验。OpenCode 运行在其中的 Debian 环境里，并与 Shell、桌面、Android 系统文件管理器和其他应用共享持久化的 `/workspace`。
 
 [下载最新版 APK](https://github.com/ZIXT233/PIRT/releases/latest)
 
@@ -23,7 +23,7 @@ PIRT 深度集成 Pi SDK，为 Pi 会话提供移动端原生的交互体验。P
 ## 它具体做了什么
 
 - 通过 PRoot 在 ARM64 Android 手机上运行 Debian 13.6，不需要 Root 权限。
-- Pi 与工具都在这个 Debian 环境内运行，命令不会转发到另一台电脑执行。
+- OpenCode（Agent、斜杠命令、MCP 工具，含 computer-use）都在这个 Debian 环境内运行，命令不会转发到另一台电脑执行。
 - Agent、Shell 和 XFCE 图形桌面共同使用持久化的 `/workspace`。
 - 通过 Android 存储访问框架把工作区暴露给系统文件管理器和兼容应用，操作的是原文件，不是额外副本。
 - 可以启动不依附于会话的后台独立进程，例如长期运行 Minecraft 服务端；可以在 PIRT 的进程列表中查看或停止。
@@ -60,7 +60,7 @@ PIRT **不需要 Root 权限**。当前版本将初始 Rootfs 镜像内置在 AP
 4. 首次启动时，等待应用校验并解压内置环境。
 5. 登录 AI 服务商或添加 OpenAI 兼容 API，然后选择模型。
 
-Pi 会话或独立进程需要在应用后台继续运行时，应开启 PIRT 悬浮窗，防止本地运行环境被 Android 冻结。浏览器授权登录在切换应用后接收登录结果也依赖悬浮窗；设备码登录不依赖它。
+OpenCode 会话或独立进程需要在应用后台继续运行时，应开启 PIRT 悬浮窗，防止本地运行环境被 Android 冻结。浏览器授权登录在切换应用后接收登录结果也依赖悬浮窗；设备码登录不依赖它。
 
 ## 工作原理
 
@@ -71,7 +71,7 @@ Android / Jetpack Compose
           │
       PIRT Runtime Service
           │
-          ├── Pi SDK 会话宿主
+          ├── OpenCode serve 会话宿主（HTTP 127.0.0.1:4096）
           ├── 持久 Shell 与进程
           └── 本地 XFCE 图形桌面
                     │
@@ -80,14 +80,15 @@ Android / Jetpack Compose
                /workspace
 ```
 
-Pi 负责会话历史与 Agent 生命周期；PIRT 负责 Android 生命周期、本地运行环境、共享工作区和移动端呈现。技术细节可查看[架构文档](docs/architecture.zh-CN.md)。
+OpenCode 负责会话历史与 Agent 生命周期；PIRT 负责 Android 生命周期、本地运行环境、共享工作区和移动端呈现。技术细节可查看[架构文档](docs/architecture.zh-CN.md)。
 
 ## 运行环境
 
 | 组件 | 版本 |
 | --- | --- |
 | Debian | 13.6 |
-| Pi Coding Agent | 0.84.1 |
+| OpenCode Agent | 1.18.34 |
+| open-computer-use MCP | 1.2.0 |
 | Node.js | 22.20.0 |
 | Python | 3.13 |
 | XFCE | 4.20 |

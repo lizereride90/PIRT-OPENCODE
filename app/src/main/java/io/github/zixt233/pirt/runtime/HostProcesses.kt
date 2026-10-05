@@ -5,7 +5,7 @@ import java.io.File
 
 enum class HostProcessKind {
     APP,
-    PI_RUNTIME,
+    AGENT_RUNTIME,
     WORKSPACE,
 }
 
@@ -110,7 +110,7 @@ internal fun hostProcessTreePrefix(depth: Int): String = when {
 }
 
 internal fun hostProcessLabel(name: String, command: String): String = when {
-    command.contains("pirt-control-bridge") -> "PIRT Agent"
+    command.contains("/usr/local/bin/opencode serve") -> "PIRT Agent"
     command.contains("PowerNukkitX", ignoreCase = true) -> "PowerNukkitX"
     command.contains("libproot_exec") -> "PRoot"
     command == "io.github.zixt233.pirt" || name.contains("example.pirt") -> "PIRT"
@@ -136,8 +136,8 @@ private fun procStatusValue(status: String, key: String): String? =
 
 private fun classifyProcess(pid: Int, ppid: Int, name: String, command: String): HostProcessKind {
     if (pid == Process.myPid()) return HostProcessKind.APP
-    if (command.contains("pirt-control-bridge") || command.contains("libproot_exec")) {
-        return HostProcessKind.PI_RUNTIME
+    if (command.contains("/usr/local/bin/opencode serve") || command.contains("libproot_exec")) {
+        return HostProcessKind.AGENT_RUNTIME
     }
     return HostProcessKind.WORKSPACE
 }

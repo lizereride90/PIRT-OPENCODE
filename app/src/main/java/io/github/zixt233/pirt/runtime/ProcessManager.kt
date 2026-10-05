@@ -4,7 +4,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-/** Lists and stops workspace processes. Not tied to Pi session lifecycle. */
+/** Lists and stops workspace processes. Not tied to OpenCode session lifecycle. */
 class ProcessManager(
     private val onActivityChanged: () -> Unit,
 ) {

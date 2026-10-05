@@ -2,13 +2,12 @@ package io.github.zixt233.pirt.model
 
 data class WorkspaceConfig(val rootPath: String)
 
-/** A direct view of a Pi session. Draft instances exist only in memory until Pi writes JSONL. */
-data class PiSession(
-    /** Process/UI identity. For persisted sessions this is the Pi id; drafts use an ephemeral handle. */
+/** A direct view of an opencode session. Draft instances exist only in memory until created server-side. */
+data class OcSession(
+    /** Process/UI identity. For persisted sessions this is the server id; drafts use an ephemeral handle. */
     val runtimeKey: String,
     val id: String? = null,
     val name: String,
-    val path: String? = null,
     val firstMessage: String? = null,
     val createdAt: Long = 0,
     val updatedAt: Long = 0,

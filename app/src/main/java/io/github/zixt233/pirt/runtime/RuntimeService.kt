@@ -19,29 +19,30 @@ import io.github.zixt233.pirt.MainActivity
 import io.github.zixt233.pirt.i18n.AppLanguageStore
 import io.github.zixt233.pirt.i18n.text
 import io.github.zixt233.pirt.model.WorkspaceConfig
-import io.github.zixt233.pirt.runtime.pi.PiSessionCatalog
-import io.github.zixt233.pirt.runtime.pi.PiSessionManager
+import io.github.zixt233.pirt.runtime.oc.OcAuthManager
+import io.github.zixt233.pirt.runtime.oc.OcSessionCatalog
+import io.github.zixt233.pirt.runtime.oc.OcSessionManager
 import java.io.File
 
 /**
- * Termux-style process owner. Compose pages only subscribe; leaving a page must not kill Pi.
- * The service and Pi still share one Android process, while the foreground notification raises
+ * Termux-style process owner. Compose pages only subscribe; leaving a page must not kill OpenCode.
+ * The service and OpenCode still share one Android process, while the foreground notification raises
  * its importance and makes the running work explicit to the user.
  */
 class RuntimeService : Service() {
     inner class RuntimeBinder : Binder() {
-        val sessions: PiSessionManager get() = sessionManager
-        val catalog: PiSessionCatalog get() = sessionCatalog
-        val auth: PiAuthManager get() = authManager
+        val sessions: OcSessionManager get() = sessionManager
+        val catalog: OcSessionCatalog get() = sessionCatalog
+        val auth: OcAuthManager get() = authManager
         val terminal: TerminalManager get() = terminalManager
         val graphics: GraphicsManager get() = graphicsManager
         val processes: ProcessManager get() = processManager
     }
 
     private val binder = RuntimeBinder()
-    private lateinit var sessionManager: PiSessionManager
-    private lateinit var sessionCatalog: PiSessionCatalog
-    private lateinit var authManager: PiAuthManager
+    private lateinit var sessionManager: OcSessionManager
+    private lateinit var sessionCatalog: OcSessionCatalog
+    private lateinit var authManager: OcAuthManager
     private lateinit var terminalManager: TerminalManager
     private lateinit var graphicsManager: GraphicsManager
     private lateinit var processManager: ProcessManager
@@ -55,17 +56,21 @@ class RuntimeService : Service() {
         instance = this
         overlay = OverlayKeepAlive(applicationContext)
         val workspace = WorkspaceConfig(File(filesDir, "pirt/workspace").apply { mkdirs() }.absolutePath)
-        var sessions: PiSessionManager? = null
-        authManager = PiAuthManager(
+        var sessions: OcSessionManager? = null
+        authManager = OcAuthManager(
             context = applicationContext,
             workspace = workspace,
             onActivityChanged = ::refresh,
-            sessionListener = { key, event -> sessions?.accept(key, event) },
-            sessionFailure = { message -> sessions?.failAll(message) },
         )
-        sessionCatalog = PiSessionCatalog(applicationContext, authManager.control)
-        sessions = PiSessionManager(
-            authManager.control,
+        sessionCatalog = OcSessionCatalog(applicationContext) {
+            authManager.start()
+            authManager.serve.takeIf { authManager.started() }
+        }
+        sessions = OcSessionManager(
+            serve = {
+                authManager.start()
+                authManager.serve.takeIf { authManager.started() }
+            },
             sessionCatalog,
             ::refresh,
             ::notifyReplyCompleted,
@@ -78,6 +83,7 @@ class RuntimeService : Service() {
             override fun snapshot() = sessionManager.overlaySnapshot()
             override fun send(message: String) = runCatching { sessionManager.overlayPrompt(message) }
         })
+        authManager.start()
         sessionCatalog.refresh()
         createChannel()
         getSystemService(NotificationManager::class.java).cancel(LEGACY_REPLY_NOTIFICATION_ID)

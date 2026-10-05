@@ -155,7 +155,7 @@ import io.github.zixt233.pirt.i18n.AppLanguage
 import io.github.zixt233.pirt.i18n.text
 import io.github.zixt233.pirt.model.ChatMessage
 import io.github.zixt233.pirt.model.MessageRole
-import io.github.zixt233.pirt.model.PiSession
+import io.github.zixt233.pirt.model.OcSession
 import io.github.zixt233.pirt.model.WorkspaceConfig
 import io.github.zixt233.pirt.runtime.OverlayPermission
 import io.github.zixt233.pirt.runtime.PRootRuntime
@@ -164,16 +164,16 @@ import io.github.zixt233.pirt.runtime.InstallState
 import io.github.zixt233.pirt.runtime.RuntimeState
 import io.github.zixt233.pirt.runtime.RuntimeInstaller
 import io.github.zixt233.pirt.runtime.RuntimeService
-import io.github.zixt233.pirt.runtime.pi.PiCommand
-import io.github.zixt233.pirt.runtime.pi.PiBranchResult
-import io.github.zixt233.pirt.runtime.pi.PiExecutionItem
-import io.github.zixt233.pirt.runtime.pi.PiExtensionUiRequest
-import io.github.zixt233.pirt.runtime.pi.PiThinkingState
-import io.github.zixt233.pirt.runtime.pi.PiToolState
-import io.github.zixt233.pirt.runtime.pi.PiModel as PiSessionModel
-import io.github.zixt233.pirt.runtime.pi.PiSessionSummary
-import io.github.zixt233.pirt.runtime.pi.ProcessState
-import io.github.zixt233.pirt.runtime.pi.TurnState
+import io.github.zixt233.pirt.runtime.oc.OcCommand
+import io.github.zixt233.pirt.runtime.oc.OcBranchResult
+import io.github.zixt233.pirt.runtime.oc.OcExecutionItem
+import io.github.zixt233.pirt.runtime.oc.OcPermissionRequest
+import io.github.zixt233.pirt.runtime.oc.OcThinkingState
+import io.github.zixt233.pirt.runtime.oc.OcToolState
+import io.github.zixt233.pirt.runtime.oc.OcModel as OcSessionModel
+import io.github.zixt233.pirt.runtime.oc.OcSessionSummary
+import io.github.zixt233.pirt.runtime.oc.ProcessState
+import io.github.zixt233.pirt.runtime.oc.TurnState
 import io.github.zixt233.pirt.ui.app.AppViewModel
 import io.github.zixt233.pirt.ui.app.PendingConversation
 import io.github.zixt233.pirt.ui.chat.ChatViewModel
@@ -228,7 +228,7 @@ fun PirtApp() {
     var newConversation by conversationUi.newConversation
     var sessionId by conversationUi.selectedSessionId
     var newConversationText by conversationUi.newConversationText
-    var newConversationPiId by conversationUi.newConversationPiId
+    var newConversationOcId by conversationUi.newConversationOcId
     val pendingConversations = conversationUi.pendingConversations
     val conversationDrafts = conversationUi.drafts
     val drawerState = rememberDrawerState(DrawerValue.Closed)
@@ -253,7 +253,7 @@ fun PirtApp() {
             sessionId = newConversation.runtimeKey
         }
         pendingConversations.toList().forEach { pending ->
-            val persisted = pending.piId?.let { id -> sessions.firstOrNull { it.id == id } } ?: return@forEach
+            val persisted = pending.ocId?.let { id -> sessions.firstOrNull { it.id == id } } ?: return@forEach
             if (sessionId == pending.session.runtimeKey) sessionId = persisted.runtimeKey
             pendingConversations.remove(pending)
         }
@@ -358,7 +358,7 @@ fun PirtApp() {
         drawerContent = {
             WorkspaceDrawer(
                 sessions = (pendingConversations.map(PendingConversation::session) + sessions)
-                    .distinctBy(PiSession::runtimeKey),
+                    .distinctBy(OcSession::runtimeKey),
                 sessionsLoaded = sessionsLoaded,
                 summaries = summaries,
                 transientSessionIds = pendingConversations.mapTo(mutableSetOf()) { it.session.runtimeKey },
@@ -488,15 +488,15 @@ fun PirtApp() {
                                         conversationDrafts[session.runtimeKey] = value
                                     }
                                 },
-                                onPiSessionId = { id ->
+                                onOcSessionId = { id ->
                                     if (isNewConversation) {
-                                        newConversationPiId = id
+                                        newConversationOcId = id
                                     } else {
                                         val index = pendingConversations.indexOfFirst { it.session.runtimeKey == session.runtimeKey }
-                                        if (index >= 0) pendingConversations[index] = pendingConversations[index].copy(piId = id)
+                                        if (index >= 0) pendingConversations[index] = pendingConversations[index].copy(ocId = id)
                                     }
                                 },
-                                onPromptSubmitted = { text, piId ->
+                                onPromptSubmitted = { text, ocId ->
                                     if (isNewConversation) {
                                         pendingConversations.add(
                                             0,
@@ -505,19 +505,21 @@ fun PirtApp() {
                                                     firstMessage = text,
                                                     updatedAt = System.currentTimeMillis(),
                                                 ),
-                                                piId = piId ?: newConversationPiId,
+                                                ocId = ocId ?: newConversationOcId,
                                             ),
                                         )
                                         newConversation = appViewModel.newSession()
                                         newConversationText = ""
-                                        newConversationPiId = null
+                                        newConversationOcId = null
                                     }
                                 },
                                 onSessionReplaced = { branch ->
-                                    pendingConversations.removeAll { it.session.runtimeKey == session.runtimeKey }
-                                    pendingConversations.add(0, PendingConversation(branch.session, branch.session.id))
-                                    branch.selectedText?.let { conversationDrafts[branch.session.runtimeKey] = it }
-                                    sessionId = branch.session.runtimeKey
+                                    val forked = sessions.firstOrNull { it.runtimeKey == branch.sessionKey }
+                                    if (forked != null) {
+                                        pendingConversations.removeAll { it.session.runtimeKey == session.runtimeKey }
+                                        pendingConversations.add(0, PendingConversation(forked, forked.id))
+                                        sessionId = forked.runtimeKey
+                                    }
                                 },
                             )
                         }
@@ -555,17 +557,17 @@ fun PirtApp() {
 
 @Composable
 private fun WorkspaceDrawer(
-    sessions: List<PiSession>,
+    sessions: List<OcSession>,
     sessionsLoaded: Boolean,
-    summaries: Map<String, PiSessionSummary>,
+    summaries: Map<String, OcSessionSummary>,
     transientSessionIds: Set<String>,
     selectedSessionId: String?,
     draftSelected: Boolean,
     draftHasText: Boolean,
     onOpenDraft: () -> Unit,
-    onOpenSession: (PiSession) -> Unit,
-    onRenameSession: (PiSession, String) -> Unit,
-    onDeleteConversation: (PiSession) -> Unit,
+    onOpenSession: (OcSession) -> Unit,
+    onRenameSession: (OcSession, String) -> Unit,
+    onDeleteConversation: (OcSession) -> Unit,
     onFiles: () -> Unit,
     onGraphics: () -> Unit,
     onProcesses: () -> Unit,
@@ -576,9 +578,9 @@ private fun WorkspaceDrawer(
     val context = LocalContext.current
     val language = LocalAppLanguage.current
     var menuSessionId by remember { mutableStateOf<String?>(null) }
-    var renameTarget by remember { mutableStateOf<PiSession?>(null) }
-    var infoTarget by remember { mutableStateOf<PiSession?>(null) }
-    var deleteTarget by remember { mutableStateOf<PiSession?>(null) }
+    var renameTarget by remember { mutableStateOf<OcSession?>(null) }
+    var infoTarget by remember { mutableStateOf<OcSession?>(null) }
+    var deleteTarget by remember { mutableStateOf<OcSession?>(null) }
     var expanded by rememberSaveable { mutableStateOf(false) }
     val sessionListState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -626,7 +628,7 @@ private fun WorkspaceDrawer(
                         color = MaterialTheme.colorScheme.primary,
                     )
                     Text(
-                        language.text("掌上虚拟电脑 Agent", "Pi Runtime on PRoot"),
+                        language.text("掌上虚拟电脑 Agent", "OpenCode Runtime on PRoot"),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -774,9 +776,9 @@ private fun NewConversationDrawerRow(selected: Boolean, hasText: Boolean, onOpen
 
 @Composable
 private fun ConversationDrawerRow(
-    session: PiSession,
+    session: OcSession,
     selected: Boolean,
-    activity: PiSessionSummary?,
+    activity: OcSessionSummary?,
     menuExpanded: Boolean,
     onOpen: () -> Unit,
     onMenu: () -> Unit,
@@ -840,7 +842,7 @@ private fun ConversationDrawerRow(
 }
 
 @Composable
-private fun SessionInfoDialog(session: PiSession, onDismiss: () -> Unit) {
+private fun SessionInfoDialog(session: OcSession, onDismiss: () -> Unit) {
     val language = LocalAppLanguage.current
     val dateFormatter = remember { DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT) }
     AlertDialog(
@@ -854,7 +856,7 @@ private fun SessionInfoDialog(session: PiSession, onDismiss: () -> Unit) {
                     SessionInfoRow(language.text("消息数", "Messages"), session.messageCount.toString())
                     if (session.createdAt > 0L) SessionInfoRow(language.text("创建时间", "Created"), dateFormatter.format(Date(session.createdAt)))
                     if (session.updatedAt > 0L) SessionInfoRow(language.text("更新时间", "Updated"), dateFormatter.format(Date(session.updatedAt)))
-                    session.path?.let { SessionInfoRow(language.text("会话文件", "Session file"), it, monospace = true) }
+                    session.id?.let { SessionInfoRow(language.text("会话 ID", "Session ID"), it, monospace = true) }
                     session.firstMessage?.let { SessionInfoRow(language.text("首条消息", "First message"), it) }
                 }
             }
@@ -871,7 +873,7 @@ private fun SessionInfoRow(label: String, value: String, monospace: Boolean = fa
     }
 }
 
-private fun sessionActivityLabel(activity: PiSessionSummary?, language: AppLanguage): String? = when {
+private fun sessionActivityLabel(activity: OcSessionSummary?, language: AppLanguage): String? = when {
     activity == null -> null
     activity.turn == TurnState.COMPACTING -> language.text("正在压缩上下文", "Compacting context")
     activity.turn in setOf(TurnState.QUEUED, TurnState.GENERATING, TurnState.RUNNING_TOOL, TurnState.STOPPING) -> language.text("AI 正在运行", "AI is running")
@@ -892,12 +894,10 @@ private fun chatStatus(state: ChatUiState, language: AppLanguage): String = when
     else -> language.text("就绪", "Ready")
 }
 
-private val blockedPiCommandNames = setOf(
-    "new", "fork", "clone", "tree", "model", "models", "thinking", "thinking-level",
-    "compact", "session", "resume", "delete", "rename", "provider", "providers", "login", "logout",
-)
+// OpenCode slash commands run natively; nothing needs hiding from the menu.
+private val blockedOcCommandNames = emptySet<String>()
 
-private fun isBlockedPiCommand(command: PiCommand): Boolean = command.name.lowercase() in blockedPiCommandNames
+private fun isBlockedOcCommand(command: OcCommand): Boolean = command.name.lowercase() in blockedOcCommandNames
 
 @Composable
 private fun ComposerShortcut(label: String, enabled: Boolean = true, onClick: () -> Unit) {
@@ -1029,9 +1029,9 @@ private fun DrawerFeatureRail(items: List<DrawerFeatureItem>, modifier: Modifier
 
 @Composable
 private fun DrawerConversationPane(
-    sessions: List<PiSession>,
+    sessions: List<OcSession>,
     sessionsLoaded: Boolean,
-    summaries: Map<String, PiSessionSummary>,
+    summaries: Map<String, OcSessionSummary>,
     selectedSessionId: String?,
     draftSelected: Boolean,
     draftHasText: Boolean,
@@ -1039,13 +1039,13 @@ private fun DrawerConversationPane(
     menuSessionId: String?,
     sessionListState: LazyListState,
     onOpenDraft: () -> Unit,
-    onOpenSession: (PiSession) -> Unit,
+    onOpenSession: (OcSession) -> Unit,
     onToggleExpanded: () -> Unit,
-    onMenu: (PiSession) -> Unit,
+    onMenu: (OcSession) -> Unit,
     onDismissMenu: () -> Unit,
-    onRename: (PiSession) -> Unit,
-    onInfo: (PiSession) -> Unit,
-    onDelete: (PiSession) -> Unit,
+    onRename: (OcSession) -> Unit,
+    onInfo: (OcSession) -> Unit,
+    onDelete: (OcSession) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val language = LocalAppLanguage.current
@@ -1345,21 +1345,20 @@ private fun ChatInputBar(
 private data class ConversationProgress(
     val provider: String = "",
     val model: String = "",
-    val thinkingLevel: String? = null,
-    val execution: List<PiExecutionItem> = emptyList(),
+    val execution: List<OcExecutionItem> = emptyList(),
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ConversationPage(
-    session: PiSession,
+    session: OcSession,
     runtime: RuntimeConnection,
     workspace: WorkspaceConfig,
     composerText: String? = null,
     onComposerTextChange: (String) -> Unit = {},
-    onPiSessionId: (String) -> Unit = {},
+    onOcSessionId: (String) -> Unit = {},
     onPromptSubmitted: (String, String?) -> Unit = { _, _ -> },
-    onSessionReplaced: (PiBranchResult) -> Unit = {},
+    onSessionReplaced: (OcBranchResult) -> Unit = {},
 ) {
     val context = LocalContext.current
     val language = LocalAppLanguage.current
@@ -1375,7 +1374,7 @@ private fun ConversationPage(
     val updateDraft: (String) -> Unit = { value ->
         if (composerText != null) onComposerTextChange(value) else localComposerText = value
     }
-    val isFreshSession = session.path == null
+    val isFreshSession = session.id == null
     val status = chatStatus(ui, language)
     val agentBusy = ui.busy
     val historyLoaded = ui.historyLoaded
@@ -1383,12 +1382,11 @@ private fun ConversationPage(
     val progress = ConversationProgress(
         provider = ui.provider,
         model = if (modelUnset) "" else ui.modelName.ifBlank { ui.modelId },
-        thinkingLevel = ui.thinkingLevel,
         execution = ui.execution,
     )
     var progressExpanded by rememberSaveable(session.runtimeKey) { mutableStateOf(false) }
     val availableModels = ui.models.sortedWith(
-        compareBy<PiSessionModel>(
+        compareBy<OcSessionModel>(
             { if (it.provider == ui.provider && it.id == ui.modelId) 0 else 1 },
             { providerPriority(it.provider) },
             { it.name },
@@ -1396,12 +1394,11 @@ private fun ConversationPage(
     )
     var modelMenuExpanded by remember(session.runtimeKey) { mutableStateOf(false) }
     var modelMenuRequested by remember(session.runtimeKey) { mutableStateOf(false) }
-    val commands = ui.commands.filterNot(::isBlockedPiCommand)
+    var agentMenuExpanded by remember(session.runtimeKey) { mutableStateOf(false) }
+    var agentMenuRequested by remember(session.runtimeKey) { mutableStateOf(false) }
+    val commands = ui.commands.filterNot(::isBlockedOcCommand)
     val extensionUiRequest = ui.extensionUiRequests.firstOrNull()
-    val thinkingLevels = ui.thinkingLevels
-    var showPiControls by remember(session.runtimeKey) { mutableStateOf(false) }
-    var showThinkingLevels by remember(session.runtimeKey) { mutableStateOf(false) }
-    var thinkingLevelsRequested by remember(session.runtimeKey) { mutableStateOf(false) }
+    var showOcControls by remember(session.runtimeKey) { mutableStateOf(false) }
     var showAttachmentSheet by remember(session.runtimeKey) { mutableStateOf(false) }
     var showSessionStats by remember(session.runtimeKey) { mutableStateOf(false) }
     var exportingHtml by remember(session.runtimeKey) { mutableStateOf(false) }
@@ -1422,18 +1419,6 @@ private fun ConversationPage(
     LaunchedEffect(chat) {
         chat.activate()
     }
-    LaunchedEffect(extensionUiRequest?.id) {
-        when (extensionUiRequest?.method) {
-            "notify" -> {
-                Toast.makeText(context, extensionUiRequest.message, Toast.LENGTH_LONG).show()
-                chat.dismissExtensionUi(extensionUiRequest.id)
-            }
-            "set_editor_text" -> {
-                updateDraft(extensionUiRequest.value.orEmpty())
-                chat.dismissExtensionUi(extensionUiRequest.id)
-            }
-        }
-    }
     LaunchedEffect(ui.agentLoaded, ui.modelId, ui.modelName, authState.selectedProvider, authState.selectedModel, authState.selectionRevision) {
         if (!ui.agentLoaded) return@LaunchedEffect
         if (!isUnsetModel(ui.modelId, ui.modelName)) return@LaunchedEffect
@@ -1442,7 +1427,7 @@ private fun ConversationPage(
         chat.setModel(provider, modelId)
     }
     LaunchedEffect(ui.sessionId) {
-        ui.sessionId?.let(onPiSessionId)
+        ui.sessionId?.let(onOcSessionId)
     }
     LaunchedEffect(ui.modelsRevision) {
         if (modelMenuRequested && ui.modelsRevision > 0) {
@@ -1450,11 +1435,10 @@ private fun ConversationPage(
             modelMenuExpanded = true
         }
     }
-    LaunchedEffect(ui.thinkingLevelsRevision) {
-        if (thinkingLevelsRequested && ui.thinkingLevelsRevision > 0) {
-            thinkingLevelsRequested = false
-            showPiControls = false
-            showThinkingLevels = true
+    LaunchedEffect(ui.agentsRevision) {
+        if (agentMenuRequested && ui.agentsRevision > 0) {
+            agentMenuRequested = false
+            agentMenuExpanded = true
         }
     }
     val newestMessage = messages.lastOrNull()
@@ -1495,7 +1479,7 @@ private fun ConversationPage(
                                 message.entryId != null &&
                                 !agentBusy &&
                                 historyLoaded &&
-                                session.path != null
+                                 session.id != null
                             ) {
                                 {
                                     chat.fork(message.entryId) { result ->
@@ -1546,7 +1530,7 @@ private fun ConversationPage(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     ComposerShortcut("/") {
-                        showPiControls = true
+                        showOcControls = true
                         chat.requestCommands()
                     }
                     val modelLabel = when {
@@ -1560,9 +1544,14 @@ private fun ConversationPage(
                         modelMenuRequested = true
                         chat.requestModels()
                     }
-                    ComposerShortcut(language.text("思考：", "Thinking: ") + (progress.thinkingLevel?.let { thinkingLevelLabel(it, language) } ?: language.text("默认", "Default"))) {
-                        thinkingLevelsRequested = true
-                        chat.requestThinkingLevels()
+                    val agentLabel = when {
+                        !ui.agentLoaded -> language.text("Agent：加载中…", "Agent: loading…")
+                        ui.agents.isEmpty() || ui.agentId.isBlank() -> language.text("Agent：选择", "Agent: select")
+                        else -> language.text("Agent：${ui.agents.firstOrNull { it.id == ui.agentId }?.name ?: ui.agentId}", "Agent: ${ui.agents.firstOrNull { it.id == ui.agentId }?.name ?: ui.agentId}")
+                    }
+                    ComposerShortcut(agentLabel, enabled = ui.agentLoaded) {
+                        agentMenuRequested = true
+                        chat.requestAgents()
                     }
                     ui.stats?.let { stats ->
                         ComposerShortcut(sessionStatsLabel(stats, language)) {
@@ -1642,12 +1631,12 @@ private fun ConversationPage(
         )
     }
 
-    extensionUiRequest?.takeIf { it.method in setOf("select", "confirm", "input", "editor") }?.let { request ->
-        ExtensionRequestDialog(
+    extensionUiRequest?.takeIf { it.method == "permission" }?.let { request ->
+        PermissionRequestDialog(
             request = request,
-            onValue = { value -> chat.respondExtensionUi(request.id, value = value) },
-            onConfirm = { confirmed -> chat.respondExtensionUi(request.id, confirmed = confirmed) },
-            onCancel = { chat.respondExtensionUi(request.id, cancelled = true) },
+            onAllow = { chat.respondPermission(request.id, true) },
+            onDeny = { chat.respondPermission(request.id, false) },
+            onDismiss = { chat.dismissPermission(request.id) },
         )
     }
 
@@ -1668,23 +1657,38 @@ private fun ConversationPage(
         )
     }
 
-    if (showPiControls) {
-        PiControlsDialog(
+    if (agentMenuExpanded) {
+        ChoiceDialog(
+            title = language.text("切换 Agent", "Switch agent"),
+            values = ui.agents,
+            label = { agent ->
+                "${agent.name}${if (agent.id == ui.agentId) language.text(" · 当前", " · current") else ""}"
+            },
+            onSelect = { agent ->
+                agentMenuExpanded = false
+                chat.setAgent(agent.id)
+            },
+            onDismiss = { agentMenuExpanded = false },
+        )
+    }
+
+    if (showOcControls) {
+        OcControlsDialog(
             commands = commands,
             autoCompaction = autoCompaction,
             autoRetry = autoRetry,
-            canClone = !agentBusy && historyLoaded && session.path != null,
+            canClone = !agentBusy && historyLoaded && ui.sessionId != null,
             canExecuteCommand = ui.ready && !agentBusy,
             onExecuteCommand = {
-                chat.executePiCommand(it)
-                showPiControls = false
+                chat.executeCommand(it)
+                showOcControls = false
             },
             onReloadRuntime = {
                 chat.reloadRuntime()
-                showPiControls = false
+                showOcControls = false
             },
             onClone = {
-                showPiControls = false
+                showOcControls = false
                 chat.cloneSession { result ->
                     result.getOrNull()?.let(onSessionReplaced)
                 }
@@ -1692,7 +1696,7 @@ private fun ConversationPage(
             canExport = !agentBusy && historyLoaded && messages.isNotEmpty() && !exportingHtml,
             onExport = {
                 exportingHtml = true
-                showPiControls = false
+                showOcControls = false
                 chat.exportHtml { result ->
                     exportingHtml = false
                     result.onSuccess { guestPath ->
@@ -1711,19 +1715,7 @@ private fun ConversationPage(
                 autoRetry = !autoRetry
                 chat.setAutoRetry(autoRetry)
             },
-            onDismiss = { showPiControls = false },
-        )
-    }
-    if (showThinkingLevels) {
-        ChoiceDialog(
-            title = language.text("思考强度", "Thinking level"),
-            values = thinkingLevels,
-            label = { thinkingLevelLabel(it, language) },
-            onSelect = {
-                chat.setThinkingLevel(it)
-                showThinkingLevels = false
-            },
-            onDismiss = { showThinkingLevels = false },
+            onDismiss = { showOcControls = false },
         )
     }
     if (showSessionStats) {
@@ -1758,13 +1750,13 @@ private fun ExecutionTrace(
     val language = LocalAppLanguage.current
     val current = progress.execution.lastOrNull { item ->
         when (item) {
-            is PiThinkingState -> !item.finished
-            is PiToolState -> !item.finished
+            is OcThinkingState -> !item.finished
+            is OcToolState -> !item.finished
         }
     } ?: progress.execution.lastOrNull()
     val collapsedText = when (current) {
-        is PiThinkingState -> current.text.replace(Regex("\\s+"), " ").trim().ifBlank { status }
-        is PiToolState -> buildString {
+        is OcThinkingState -> current.text.replace(Regex("\\s+"), " ").trim().ifBlank { status }
+        is OcToolState -> buildString {
             append(if (current.finished) toolDisplayName(current.name, language) else language.text("正在${toolDisplayName(current.name, language)}", "Running ${toolDisplayName(current.name, language)}"))
             current.summary.takeIf(String::isNotBlank)?.let { append(" · ").append(it) }
         }
@@ -1829,8 +1821,8 @@ private fun ExecutionTrace(
                 progress.execution.forEachIndexed { index, item ->
                     if (index > 0) HorizontalDivider()
                     when (item) {
-                        is PiThinkingState -> ThinkingTraceItem(item)
-                        is PiToolState -> ToolTraceItem(item)
+                        is OcThinkingState -> ThinkingTraceItem(item)
+                        is OcToolState -> ToolTraceItem(item)
                     }
                 }
                 if (progress.execution.isEmpty()) {
@@ -1842,7 +1834,7 @@ private fun ExecutionTrace(
 }
 
 @Composable
-private fun ThinkingTraceItem(item: PiThinkingState) {
+private fun ThinkingTraceItem(item: OcThinkingState) {
     val language = LocalAppLanguage.current
     Text(
         if (item.finished) language.text("思考 · 完成", "Thinking · complete") else language.text("思考 · 进行中", "Thinking · in progress"),
@@ -1862,7 +1854,7 @@ private fun ThinkingTraceItem(item: PiThinkingState) {
 }
 
 @Composable
-private fun ToolTraceItem(item: PiToolState) {
+private fun ToolTraceItem(item: OcToolState) {
     val language = LocalAppLanguage.current
     val state = when {
         item.failed -> language.text("失败", "Failed")
@@ -2199,8 +2191,8 @@ private fun prepareChatImage(context: Context, uri: Uri): ChatImage {
 }
 
 @Composable
-private fun PiControlsDialog(
-    commands: List<PiCommand>,
+private fun OcControlsDialog(
+    commands: List<OcCommand>,
     autoCompaction: Boolean,
     autoRetry: Boolean,
     canClone: Boolean,
@@ -2256,14 +2248,14 @@ private fun PiControlsDialog(
                         Text(language.text("自动重试：${if (autoRetry) "已开启" else "已关闭"}", "Auto retry: ${if (autoRetry) "on" else "off"}"))
                     }
                 }
-                item { Text(language.text("PIRT 扩展能力", "PIRT extensions"), fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp)) }
+                item { Text(language.text("OpenCode 命令", "OpenCode commands"), fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp)) }
                 item {
                     OutlinedTextField(
                         value = commandText,
                         onValueChange = { commandText = it },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        label = { Text(language.text("Pi 命令", "Pi command")) },
+                        label = { Text(language.text("命令", "Command")) },
                         placeholder = { Text("/command args") },
                         supportingText = { Text(language.text("仅执行下方列出的命令；会话和模型操作请使用 PIRT 界面。", "Only commands listed below can run. Use PIRT controls for sessions and models.")) },
                     )
@@ -2278,7 +2270,7 @@ private fun PiControlsDialog(
                     }
                 }
                 if (commands.isEmpty()) {
-                    item { Text(language.text("当前 workspace 没有额外的快捷操作、提示词或工作流。", "This workspace has no additional actions, prompt templates, or workflows.")) }
+                    item { Text(language.text("暂无可用命令。输入 /command args 可直接执行。", "No commands available. Type /command args to run one directly.")) }
                 } else {
                     commandGroup(language.text("快捷操作", "Actions"), language.text("选择后可补充参数再执行", "Select, add arguments, then run"), actionCommands) { commandText = "/${it.name} " }
                     commandGroup(language.text("提示词", "Prompts"), language.text("选择后可补充参数再执行", "Select, add arguments, then run"), promptTemplates) { commandText = "/${it.name} " }
@@ -2293,8 +2285,8 @@ private fun PiControlsDialog(
 private fun androidx.compose.foundation.lazy.LazyListScope.commandGroup(
     title: String,
     subtitle: String,
-    commands: List<PiCommand>,
-    onCommand: (PiCommand) -> Unit,
+    commands: List<OcCommand>,
+    onCommand: (OcCommand) -> Unit,
 ) {
     if (commands.isEmpty()) return
     item(key = "group:$title") {
@@ -2343,60 +2335,30 @@ private fun ExtensionIndicators(statuses: Map<String, String>, widgets: Map<Stri
 }
 
 @Composable
-private fun ExtensionRequestDialog(
-    request: PiExtensionUiRequest,
-    onValue: (String) -> Unit,
-    onConfirm: (Boolean) -> Unit,
-    onCancel: () -> Unit,
+private fun PermissionRequestDialog(
+    request: OcPermissionRequest,
+    onAllow: () -> Unit,
+    onDeny: () -> Unit,
+    onDismiss: () -> Unit,
 ) {
     val language = LocalAppLanguage.current
-    var value by remember(request.id) { mutableStateOf(request.prefill) }
-    when (request.method) {
-        "select" -> AlertDialog(
-            onDismissRequest = onCancel,
-            title = { Text(request.title.ifBlank { language.text("请选择", "Select an option") }) },
-            text = {
-                LazyColumn(Modifier.fillMaxWidth().heightIn(max = 420.dp)) {
-                    items(request.options) { option ->
-                        TextButton(onClick = { onValue(option) }, modifier = Modifier.fillMaxWidth()) {
-                            Text(option, modifier = Modifier.fillMaxWidth())
-                        }
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = { TextButton(onClick = onCancel) { Text(language.text("取消", "Cancel")) } },
-        )
-        "confirm" -> AlertDialog(
-            onDismissRequest = { onConfirm(false) },
-            title = { Text(request.title.ifBlank { language.text("请确认", "Please confirm") }) },
-            text = { Text(request.message) },
-            confirmButton = { TextButton(onClick = { onConfirm(true) }) { Text(language.text("确认", "Confirm")) } },
-            dismissButton = { TextButton(onClick = { onConfirm(false) }) { Text(language.text("取消", "Cancel")) } },
-        )
-        "input", "editor" -> AlertDialog(
-            onDismissRequest = onCancel,
-            title = { Text(request.title.ifBlank { if (request.method == "editor") language.text("编辑内容", "Edit content") else language.text("请输入", "Enter a value") }) },
-            text = {
-                OutlinedTextField(
-                    value = value,
-                    onValueChange = { value = it },
-                    placeholder = { request.placeholder.takeIf(String::isNotBlank)?.let { Text(it) } },
-                    singleLine = request.method == "input",
-                    minLines = if (request.method == "editor") 6 else 1,
-                    maxLines = if (request.method == "editor") 14 else 1,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            },
-            confirmButton = { TextButton(onClick = { onValue(value) }) { Text(language.text("确定", "OK")) } },
-            dismissButton = { TextButton(onClick = onCancel) { Text(language.text("取消", "Cancel")) } },
-        )
-    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(request.title.ifBlank { language.text("权限请求", "Permission requested") }) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (request.message.isNotBlank()) Text(request.message)
+                request.lines.forEach { Text(it, style = MaterialTheme.typography.bodySmall) }
+            }
+        },
+        confirmButton = { TextButton(onClick = onAllow) { Text(language.text("允许", "Allow")) } },
+        dismissButton = { TextButton(onClick = onDeny) { Text(language.text("拒绝", "Deny")) } },
+    )
 }
 
 @Composable
 private fun SessionStatsDialog(
-    stats: io.github.zixt233.pirt.runtime.pi.PiSessionStats?,
+    stats: io.github.zixt233.pirt.runtime.oc.OcSessionStats?,
     compacting: Boolean,
     canCompact: Boolean,
     onCompact: () -> Unit,
@@ -2437,7 +2399,7 @@ private fun SessionStatsDialog(
     )
 }
 
-private fun sessionStatsLabel(stats: io.github.zixt233.pirt.runtime.pi.PiSessionStats, language: AppLanguage): String {
+private fun sessionStatsLabel(stats: io.github.zixt233.pirt.runtime.oc.OcSessionStats, language: AppLanguage): String {
     val context = stats.contextUsage?.percent?.let { language.text("上下文 ${it.roundToInt().coerceIn(0, 100)}%", "Context ${it.roundToInt().coerceIn(0, 100)}%") } ?: language.text("上下文 --", "Context --")
     return "$context · Token ${formatTokenCount(stats.tokens.total)}"
 }
@@ -2494,17 +2456,6 @@ private fun <T> ChoiceDialog(
 private fun isUnsetModel(modelId: String, modelName: String): Boolean {
     val label = modelName.ifBlank { modelId }.trim()
     return label.isEmpty() || label.equals("unknown", ignoreCase = true) || label.equals("none", ignoreCase = true)
-}
-
-private fun thinkingLevelLabel(level: String, language: AppLanguage): String = when (level) {
-    "off" -> language.text("关闭", "Off")
-    "minimal" -> language.text("最少", "Minimal")
-    "low" -> language.text("较低", "Low")
-    "medium" -> language.text("中等", "Medium")
-    "high" -> language.text("较高", "High")
-    "xhigh" -> language.text("很高", "Very high")
-    "max" -> language.text("最高", "Maximum")
-    else -> level
 }
 
 @Composable

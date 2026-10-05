@@ -5,9 +5,12 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
-import io.github.zixt233.pirt.runtime.pi.PiSessionManager
-import io.github.zixt233.pirt.runtime.pi.PiSessionSummary
-import io.github.zixt233.pirt.model.PiSession
+import io.github.zixt233.pirt.runtime.oc.OcAuthManager
+import io.github.zixt233.pirt.runtime.oc.OcAuthState
+import io.github.zixt233.pirt.runtime.oc.OcSessionCatalog
+import io.github.zixt233.pirt.runtime.oc.OcSessionManager
+import io.github.zixt233.pirt.runtime.oc.OcSessionSummary
+import io.github.zixt233.pirt.model.OcSession
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -28,17 +31,17 @@ class RuntimeConnection(context: Context) : AutoCloseable {
     private val binder = MutableStateFlow<RuntimeService.RuntimeBinder?>(null)
     private var bound = false
 
-    val manager: StateFlow<PiSessionManager?> = binder
+    val manager: StateFlow<OcSessionManager?> = binder
         .map { it?.sessions }
         .stateIn(scope, SharingStarted.Eagerly, null)
 
-    val auth: StateFlow<PiAuthManager?> = binder
+    val auth: StateFlow<OcAuthManager?> = binder
         .map { it?.auth }
         .stateIn(scope, SharingStarted.Eagerly, null)
 
-    val authState: StateFlow<PiAuthState> = binder
-        .flatMapLatest { it?.auth?.state ?: flowOf(PiAuthState()) }
-        .stateIn(scope, SharingStarted.Eagerly, PiAuthState())
+    val authState: StateFlow<OcAuthState> = binder
+        .flatMapLatest { it?.auth?.state ?: flowOf(OcAuthState()) }
+        .stateIn(scope, SharingStarted.Eagerly, OcAuthState())
 
     val terminal: StateFlow<TerminalManager?> = binder
         .map { it?.terminal }
@@ -56,11 +59,11 @@ class RuntimeConnection(context: Context) : AutoCloseable {
         .flatMapLatest { it?.graphics?.state ?: flowOf(GraphicsState.Stopped) }
         .stateIn(scope, SharingStarted.Eagerly, GraphicsState.Stopped)
 
-    val summaries: StateFlow<Map<String, PiSessionSummary>> = binder
+    val summaries: StateFlow<Map<String, OcSessionSummary>> = binder
         .flatMapLatest { it?.sessions?.summaries ?: flowOf(emptyMap()) }
         .stateIn(scope, SharingStarted.Eagerly, emptyMap())
 
-    val sessions: StateFlow<List<PiSession>> = binder
+    val sessions: StateFlow<List<OcSession>> = binder
         .flatMapLatest { it?.catalog?.sessions ?: flowOf(emptyList()) }
         .stateIn(scope, SharingStarted.Eagerly, emptyList())
 

@@ -2,7 +2,7 @@
 
 PIRT ships an arm64 Debian rootfs as a single `tar.gz` blob inside the APK assets.
 
-> This is a repeatable build recipe, not a byte-for-byte reproducible build. Node.js is checksum-pinned and the Pi package version is pinned. Apt dependencies come from the current Debian repository state.
+> This is a repeatable build recipe, not a byte-for-byte reproducible build. Node.js is checksum-pinned and the OpenCode npm version is pinned. Apt dependencies come from the current Debian repository state.
 
 ## What gets built
 
@@ -12,9 +12,9 @@ PIRT ships an arm64 Debian rootfs as a single `tar.gz` blob inside the APK asset
 - Minimal XFCE (`xfce4`, `--no-install-recommends`)
 - TigerVNC (standalone server + tools; no noVNC/websockify in this fork)
 - Node.js (pinned tarball from nodejs.org)
-- Pi coding agent (`@earendil-works/pi-coding-agent`, pinned version)
+- OpenCode agent (`opencode-ai`, pinned version) plus GUI/MCP tooling (ripgrep, jq, xdotool, scrot, wmctrl, AT-SPI)
 
-Pinned top-level versions live in `tools/rootfs.env`. Android-side bridge scripts (`pirt-control-bridge.mjs`) are **not** baked into the blob.
+Pinned top-level versions live in `tools/rootfs.env`. The `opencode` CLI and `open-computer-use` binaries ship as APK assets and are installed into the guest at install time, so fresh blob rebuilds stay small.
 
 ## Host requirements
 

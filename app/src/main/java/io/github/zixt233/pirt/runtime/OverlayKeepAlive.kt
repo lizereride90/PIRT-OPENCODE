@@ -24,7 +24,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
-import io.github.zixt233.pirt.runtime.pi.OverlayChatSnapshot
+import io.github.zixt233.pirt.runtime.oc.OverlayChatSnapshot
 import io.github.zixt233.pirt.i18n.AppLanguageStore
 import io.github.zixt233.pirt.i18n.text
 import kotlin.math.abs

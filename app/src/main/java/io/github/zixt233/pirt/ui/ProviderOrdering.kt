@@ -1,6 +1,6 @@
 package io.github.zixt233.pirt.ui
 
-import io.github.zixt233.pirt.runtime.PiProvider
+import io.github.zixt233.pirt.runtime.oc.OcProvider
 
 internal fun providerPriority(id: String): Int = when {
     id == "openai-codex" -> 0
@@ -19,8 +19,8 @@ internal fun providerPriority(id: String): Int = when {
     else -> 100
 }
 
-internal fun sortProviders(providers: List<PiProvider>): List<PiProvider> = providers.sortedWith(
-    compareBy<PiProvider>(
+internal fun sortProviders(providers: List<OcProvider>): List<OcProvider> = providers.sortedWith(
+    compareBy<OcProvider>(
         { if (it.configured) 0 else 1 },
         { providerPriority(it.id) },
         { it.name },

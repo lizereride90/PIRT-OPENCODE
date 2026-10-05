@@ -309,7 +309,7 @@ private fun DetailLine(label: String, value: String? = null) {
 
 private fun processKindLabel(kind: HostProcessKind, language: AppLanguage): String = when (kind) {
     HostProcessKind.APP -> language.text("PIRT 主进程", "PIRT app")
-    HostProcessKind.PI_RUNTIME -> language.text("PIRT Agent", "PIRT agent")
+    HostProcessKind.AGENT_RUNTIME -> language.text("PIRT Agent", "PIRT agent")
     HostProcessKind.WORKSPACE -> language.text("Workspace 进程", "Workspace process")
 }
 

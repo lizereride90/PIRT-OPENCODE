@@ -22,3 +22,5 @@ local.properties
 # The bundled Rootfs is a large generated release asset; do not store it in Git.
 *.blob
 /references/
+# Prebuilt guest binaries fetched by CI (see .github/workflows).
+*.bin

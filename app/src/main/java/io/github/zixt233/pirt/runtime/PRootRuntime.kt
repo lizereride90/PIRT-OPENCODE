@@ -59,27 +59,32 @@ class PRootRuntime(context: Context) {
         // The packaged rootfs is an initial environment, not an app-managed image.
         // APK upgrades must never replace a user's writable Linux installation.
         if (!prepareSupportFiles()) {
-            return RuntimeState.NotInstalled("Could not prepare Pi runtime support files")
+            return RuntimeState.NotInstalled("Could not prepare OpenCode runtime support files")
         }
-        if (!File(paths.rootfs, "usr/local/bin/pi").isFile ||
+        if (!File(paths.rootfs, "usr/local/bin/opencode").isFile ||
+            !File(paths.rootfs, "usr/local/bin/open-computer-use").isFile ||
             !File(paths.rootfs, "usr/local/bin/node").isFile ||
             !File(paths.rootfs, "usr/bin/git").isFile ||
+            !File(paths.rootfs, "usr/bin/rg").isFile ||
             !File(paths.rootfs, "usr/bin/Xtigervnc").isFile ||
             !File(paths.rootfs, "usr/bin/tigervncpasswd").isFile ||
             !File(paths.rootfs, "usr/bin/startxfce4").isFile ||
-            !File(paths.rootfs, "usr/bin/xdg-open").isFile ||
-            !File(paths.rootfs, "usr/local/lib/pirt/pirt-control-bridge.mjs").isFile
+            !File(paths.rootfs, "usr/bin/xdg-open").isFile
         ) {
             return RuntimeState.NotInstalled("开发工具安装不完整")
         }
         return RuntimeState.Ready
     }
 
-    fun piAgentHostProcess(workspace: WorkspaceConfig): RuntimeProcessSpec {
+    /**
+     * Resident `opencode serve` host process. The app talks to OpenCode over
+     * HTTP on localhost; server password is injected per boot (see OcServeClient).
+     */
+    fun opencodeServeProcess(workspace: WorkspaceConfig, serverPassword: String): RuntimeProcessSpec {
         check(state() is RuntimeState.Ready) { "Debian runtime is not ready" }
         // The packaged rootfs is built in Docker, so its resolv.conf contains the
         // builder's private DNS server. Keep the guest resolver aligned with the
-        // Android network before Node performs OAuth or model API requests.
+        // Android network before OpenCode performs OAuth or model API requests.
         refreshNetworkConfiguration()
         paths.proot.setExecutable(true, true)
         val hostWorkspace = workspace(workspace)
@@ -97,7 +102,10 @@ class PRootRuntime(context: Context) {
                     "TERM=xterm-256color",
                     "DISPLAY=:$GRAPHICS_DISPLAY",
                     "XDG_RUNTIME_DIR=/tmp/pirt-xdg-agent",
-                    "/usr/local/bin/node", "/usr/local/lib/pirt/pirt-control-bridge.mjs",
+                    "OPENCODE_SERVER_PASSWORD=$serverPassword",
+                    "/usr/local/bin/opencode", "serve",
+                    "--hostname", "127.0.0.1",
+                    "--port", "$SERVE_PORT",
                 ))
             },
             environment = nativeEnvironment(),
@@ -293,19 +301,9 @@ class PRootRuntime(context: Context) {
     }.getOrDefault(false)
 
     private fun prepareSupportFiles(): Boolean = runCatching {
-        listOf("pirt-auth-bridge.mjs", "pirt-session-catalog.mjs").forEach { name ->
-            File(paths.rootfs, "usr/local/lib/pirt/$name").delete()
-        }
-        File(paths.rootfs, "usr/local/lib/pirt/pirt-process-host.mjs").delete()
-        listOf("pirt-control-bridge.mjs").forEach { name ->
-            val target = File(paths.rootfs, "usr/local/lib/pirt/$name")
-            val content = appContext.assets.open("runtime/$name").use { it.readBytes() }
-            if (!target.isFile || !target.readBytes().contentEquals(content)) {
-                target.parentFile?.mkdirs()
-                target.writeBytes(content)
-            }
-            android.system.Os.chmod(target.absolutePath, 0b111101101)
-        }
+        copySupportExecutable("opencode-linux-arm64.bin", "usr/local/bin/opencode")
+        copySupportExecutable("open-computer-use-linux-arm64.bin", "usr/local/bin/open-computer-use")
+        seedSupportOpenCodeConfig()
         val wallpaper = File(paths.rootfs, "usr/local/share/pirt/pirt-wallpaper.png")
         val wallpaperContent = appContext.assets.open("runtime/pirt-wallpaper.png").use { it.readBytes() }
         if (!wallpaper.isFile || !wallpaper.readBytes().contentEquals(wallpaperContent)) {
@@ -316,11 +314,64 @@ class PRootRuntime(context: Context) {
         true
     }.getOrDefault(false)
 
+    private fun copySupportExecutable(assetName: String, guestPath: String) {
+        val target = File(paths.rootfs, guestPath)
+        val assetLength = runCatching {
+            appContext.assets.openFd("runtime/$assetName").use { it.length }
+        }.getOrDefault(-1L)
+        if (target.isFile && assetLength >= 0 && target.length() == assetLength) return
+        if (target.isFile && assetLength < 0 && streamingContentEquals(assetName, target)) {
+            android.system.Os.chmod(target.absolutePath, 0b111101101)
+            return
+        }
+        appContext.assets.open("runtime/$assetName").use { input ->
+            target.parentFile?.mkdirs()
+            target.outputStream().use(input::copyTo)
+        }
+        android.system.Os.chmod(target.absolutePath, 0b111101101)
+    }
+
+    private fun streamingContentEquals(assetName: String, target: File): Boolean = runCatching {
+        appContext.assets.open("runtime/$assetName").use { input ->
+            target.inputStream().use { file ->
+                val a = ByteArray(64 * 1024)
+                val b = ByteArray(64 * 1024)
+                while (true) {
+                    val na = input.read(a)
+                    val nb = file.read(b)
+                    if (na != nb) return false
+                    if (na < 0) return true
+                    if (!a.copyOf(na).contentEquals(b.copyOf(nb))) return false
+                }
+            }
+        }
+    }.getOrDefault(false)
+
+    private fun seedSupportOpenCodeConfig() {
+        val config = File(paths.rootfs, "root/.config/opencode/opencode.json")
+        if (config.isFile) return
+        config.parentFile?.mkdirs()
+        config.writeText(
+            "{\n" +
+                "  \"\$schema\": \"https://opencode.ai/config.json\",\n" +
+                "  \"mcp\": {\n" +
+                "    \"open-computer-use\": {\n" +
+                "      \"type\": \"local\",\n" +
+                "      \"command\": [\"/usr/local/bin/open-computer-use\"],\n" +
+                "      \"enabled\": true\n" +
+                "    }\n" +
+                "  }\n" +
+                "}\n",
+        )
+        android.system.Os.chmod(config.absolutePath, 0b110100100)
+    }
+
     private fun shellSingleQuote(value: String): String =
         "'" + value.replace("'", "'\"'\"'") + "'"
 
     private companion object {
         const val GRAPHICS_DISPLAY = 100
+        const val SERVE_PORT = 4096
     }
 }
 

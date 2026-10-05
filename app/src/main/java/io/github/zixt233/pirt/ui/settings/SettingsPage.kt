@@ -56,11 +56,11 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import io.github.zixt233.pirt.runtime.OverlayPermission
 import io.github.zixt233.pirt.runtime.PRootRuntime
-import io.github.zixt233.pirt.runtime.PiAuthActivity
-import io.github.zixt233.pirt.runtime.PiAuthEvent
-import io.github.zixt233.pirt.runtime.PiAuthOption
-import io.github.zixt233.pirt.runtime.PiModel
-import io.github.zixt233.pirt.runtime.PiProvider
+import io.github.zixt233.pirt.runtime.oc.OcAuthActivity
+import io.github.zixt233.pirt.runtime.oc.OcAuthEvent
+import io.github.zixt233.pirt.runtime.oc.OcAuthOption
+import io.github.zixt233.pirt.runtime.oc.OcModel
+import io.github.zixt233.pirt.runtime.oc.OcProvider
 import io.github.zixt233.pirt.runtime.RuntimeConnection
 import io.github.zixt233.pirt.runtime.RuntimeArtifacts
 import io.github.zixt233.pirt.runtime.RuntimeService
@@ -102,8 +102,8 @@ fun SettingsPage(
     var overlayEnabled by remember { mutableStateOf(OverlayPermission.isUserEnabled(context)) }
     val listState = rememberLazyListState()
     val providers = remember(authState.providers) { sortProviders(authState.providers) }
-    val connectedProviders = remember(providers) { providers.filter(PiProvider::configured) }
-    val loginProviders = remember(providers) { providers.filterNot(PiProvider::configured) }
+    val connectedProviders = remember(providers) { providers.filter(OcProvider::configured) }
+    val loginProviders = remember(providers) { providers.filterNot(OcProvider::configured) }
     var activeProviderId by remember { mutableStateOf<String?>(null) }
     var showModels by remember { mutableStateOf(false) }
     var modelsRequested by remember { mutableStateOf(false) }
@@ -244,7 +244,7 @@ fun SettingsPage(
                 ) {
                     CircularProgressIndicator(Modifier.width(18.dp).height(18.dp), strokeWidth = 2.dp)
                     Text(authActivityLabel(activity, language), modifier = Modifier.weight(1f))
-                    if (activity == PiAuthActivity.LOGGING_IN && authState.activeLoginId != null) {
+                    if (activity == OcAuthActivity.LOGGING_IN && authState.activeLoginId != null) {
                         TextButton(onClick = { auth?.cancelActiveLogin() }) { Text(language.text("取消", "Cancel")) }
                     }
                 }
@@ -306,8 +306,8 @@ fun SettingsPage(
                     Text(language.text("登录 AI 账号", "Sign in to AI"), style = MaterialTheme.typography.titleLarge)
                     when {
                         !authState.providersLoaded ||
-                            authState.activity == PiAuthActivity.STARTING ||
-                            authState.activity == PiAuthActivity.LOADING_PROVIDERS -> {
+                            authState.activity == OcAuthActivity.STARTING ||
+                            authState.activity == OcAuthActivity.LOADING_PROVIDERS -> {
                             Text(language.text("正在读取可用 AI 服务……", "Loading available AI services…"), color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         loginProviders.isEmpty() && providers.isNotEmpty() -> {
@@ -410,8 +410,8 @@ fun SettingsPage(
                     Text(language.text("已登录账号", "Connected accounts"), style = MaterialTheme.typography.titleLarge)
                     when {
                         !authState.providersLoaded ||
-                            authState.activity == PiAuthActivity.STARTING ||
-                            authState.activity == PiAuthActivity.LOADING_PROVIDERS -> {
+                            authState.activity == OcAuthActivity.STARTING ||
+                            authState.activity == OcAuthActivity.LOADING_PROVIDERS -> {
                         Text(language.text("正在读取登录状态……", "Loading sign-in status…"), color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         connectedProviders.isEmpty() -> {
@@ -575,7 +575,8 @@ fun SettingsPage(
                             monospace = true,
                         )
                         EnvironmentVersionRow("Debian", RuntimeArtifacts.DEBIAN_VERSION)
-                        EnvironmentVersionRow("Pi", RuntimeArtifacts.PI_VERSION)
+                        EnvironmentVersionRow("OpenCode", RuntimeArtifacts.OPENCODE_VERSION)
+                        EnvironmentVersionRow("open-computer-use", RuntimeArtifacts.OCU_VERSION)
                         EnvironmentVersionRow("PRoot", RuntimeArtifacts.PROOT_VERSION)
                         EnvironmentVersionRow(language.text("软件版本", "App version"), appVersion)
                         Text(
@@ -632,8 +633,8 @@ fun SettingsPage(
             text = {
                 Text(
                     language.text(
-                        "将删除当前 Debian 系统层并重新解压 APK 初始 Rootfs。通过 apt 安装的软件包以及对系统目录的修改都会被清除。/workspace、Pi 会话和登录数据会保留。此操作无法撤销。",
-                        "This deletes the current Debian system layer and extracts the APK initial rootfs. Packages installed with apt and changes to system directories will be removed. /workspace, Pi sessions, and sign-in data are preserved. This cannot be undone.",
+                        "将删除当前 Debian 系统层并重新解压 APK 初始 Rootfs。通过 apt 安装的软件包以及对系统目录的修改都会被清除。/workspace、OpenCode 会话和登录数据会保留。此操作无法撤销。",
+                        "This deletes the current Debian system layer and extracts the APK initial rootfs. Packages installed with apt and changes to system directories will be removed. /workspace, OpenCode sessions, and sign-in data are preserved. This cannot be undone.",
                     )
                 )
             },
@@ -763,18 +764,18 @@ private fun EnvironmentVersionRow(label: String, value: String, monospace: Boole
     }
 }
 
-private fun authActivityLabel(activity: PiAuthActivity, language: AppLanguage): String = when (activity) {
-    PiAuthActivity.STARTING -> language.text("正在启动 PIRT 认证服务……", "Starting PIRT authentication…")
-    PiAuthActivity.LOADING_PROVIDERS -> language.text("正在读取 AI 服务与登录状态……", "Loading AI services and sign-in status…")
-    PiAuthActivity.LOADING_MODELS -> language.text("正在读取模型列表……", "Loading models…")
-    PiAuthActivity.LOGGING_IN -> language.text("正在等待登录结果……", "Waiting for sign-in…")
-    PiAuthActivity.LOGGING_OUT -> language.text("正在退出账号……", "Signing out…")
-    PiAuthActivity.SELECTING_MODEL -> language.text("正在保存新会话默认模型……", "Saving the default model…")
+private fun authActivityLabel(activity: OcAuthActivity, language: AppLanguage): String = when (activity) {
+    OcAuthActivity.STARTING -> language.text("正在启动 PIRT 认证服务……", "Starting PIRT authentication…")
+    OcAuthActivity.LOADING_PROVIDERS -> language.text("正在读取 AI 服务与登录状态……", "Loading AI services and sign-in status…")
+    OcAuthActivity.LOADING_MODELS -> language.text("正在读取模型列表……", "Loading models…")
+    OcAuthActivity.LOGGING_IN -> language.text("正在等待登录结果……", "Waiting for sign-in…")
+    OcAuthActivity.LOGGING_OUT -> language.text("正在退出账号……", "Signing out…")
+    OcAuthActivity.SELECTING_MODEL -> language.text("正在保存新会话默认模型……", "Saving the default model…")
 }
 
 @Composable
 private fun AuthNoticeDialog(
-    notice: PiAuthEvent.Notice,
+    notice: OcAuthEvent.Notice,
     onOpen: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -802,7 +803,7 @@ private fun AuthNoticeDialog(
 
 @Composable
 private fun AuthPromptDialog(
-    prompt: PiAuthEvent.Prompt,
+    prompt: OcAuthEvent.Prompt,
     onAnswer: (String) -> Unit,
     onCancel: () -> Unit,
 ) {
@@ -906,13 +907,13 @@ private fun AuthPromptDialog(
     )
 }
 
-private fun localizedAuthPrompt(prompt: PiAuthEvent.Prompt, language: AppLanguage): String = when {
+private fun localizedAuthPrompt(prompt: OcAuthEvent.Prompt, language: AppLanguage): String = when {
     "Select OpenAI Codex login method" in prompt.message -> language.text("选择 Codex 登录方式", "Choose a Codex sign-in method")
     prompt.kind == "manual_code" -> language.text("请在浏览器完成登录；如果没有自动返回，请粘贴授权码或完整回调链接。", "Complete sign-in in the browser. If it does not return automatically, paste the authorization code or full callback URL.")
     else -> prompt.message
 }
 
-private fun localizedAuthOption(option: PiAuthOption, language: AppLanguage): String = when (option.id) {
+private fun localizedAuthOption(option: OcAuthOption, language: AppLanguage): String = when (option.id) {
     "browser" -> language.text("系统浏览器登录（推荐）", "System browser (recommended)")
     "device_code" -> language.text("设备码登录（可跨设备）", "Device code (works across devices)")
     else -> option.label
@@ -920,11 +921,11 @@ private fun localizedAuthOption(option: PiAuthOption, language: AppLanguage): St
 
 @Composable
 private fun ModelPickerDialog(
-    provider: PiProvider?,
-    models: List<PiModel>,
+    provider: OcProvider?,
+    models: List<OcModel>,
     selectedProvider: String?,
     selectedModel: String?,
-    onSelect: (PiModel) -> Unit,
+    onSelect: (OcModel) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val language = LocalAppLanguage.current

@@ -1,9 +1,15 @@
-name: Build APK (embedded AVNC + TigerVNC)
+name: Build APK (OpenCode + TigerVNC + embedded AVNC)
 
 on:
   push:
     branches: [main, master]
   workflow_dispatch:
+
+env:
+  OPENCODE_VERSION: "1.18.34"
+  OCU_VERSION: "1.2.0"
+  UPSTREAM_APK_URL: "https://github.com/ZIXT233/PIRT/releases/download/v0.2.0/PIRT-v0.2.0.apk"
+  BLOB_SHA256: "ac4d582572962f3efb5cd2c0bb1b8bea6321ed5d0bb6361fd8376b61eb5be37a"
 
 jobs:
   build:
@@ -27,21 +33,45 @@ jobs:
           yes | "$SDKMANAGER" --licenses > /dev/null || true
           "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
 
-      - name: Restore Debian rootfs blob from upstream release APK
-        # The 390 MB rootfs blob is git-ignored; extract it from the
-        # upstream PIRT v0.2.0 APK so this fork builds offline-capable.
+      - name: Restore guest payload cache
+        id: payload-cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/pirt-guest
+          key: pirt-guest-${{ env.OPENCODE_VERSION }}-${{ env.OCU_VERSION }}-${{ env.BLOB_SHA256 }}
+
+      - name: Fetch guest payloads (blob + OpenCode + computer-use)
         run: |
           set -euo pipefail
-          curl -fsSL --retry 5 -o /tmp/upstream-pirt.apk \
-            https://github.com/ZIXT233/PIRT/releases/download/v0.2.0/PIRT-v0.2.0.apk
-          BLOB="app/src/main/assets/runtime/debian-13.6.0-base-arm64.blob"
-          unzip -p /tmp/upstream-pirt.apk "assets/runtime/debian-13.6.0-base-arm64.blob" > "$BLOB"
-          EXPECTED="ac4d582572962f3efb5cd2c0bb1b8bea6321ed5d0bb6361fd8376b61eb5be37a"
-          ACTUAL="$(sha256sum "$BLOB" | awk '{print $1}')"
-          test "$ACTUAL" = "$EXPECTED"
+          mkdir -p /tmp/pirt-guest app/src/main/assets/runtime
+          cd /tmp/pirt-guest
+          if [ ! -f debian-13.6.0-base-arm64.blob ]; then
+            curl -fsSL --retry 5 -o upstream-pirt.apk "$UPSTREAM_APK_URL"
+            unzip -p upstream-pirt.apk "assets/runtime/debian-13.6.0-base-arm64.blob" > debian-13.6.0-base-arm64.blob
+            rm -f upstream-pirt.apk
+          fi
+          echo "$BLOB_SHA256  debian-13.6.0-base-arm64.blob" | sha256sum -c -
+          if [ ! -f opencode-linux-arm64 ]; then
+            curl -fsSL --retry 5 -o oc.tgz "https://github.com/anomalyco/opencode/releases/download/v${OPENCODE_VERSION}/opencode-linux-arm64.tar.gz"
+            tar -xzOf oc.tgz opencode > opencode-linux-arm64
+            rm -f oc.tgz
+            chmod +x opencode-linux-arm64
+          fi
+          if [ ! -f open-computer-use-linux-arm64 ]; then
+            curl -fsSL --retry 5 -o ocu.tgz "https://github.com/opensymph/open-computer-use/releases/download/v${OCU_VERSION}/opensymph-open-computer-use-${OCU_VERSION}.tgz"
+            tar -xzOf ocu.tgz package/dist/linux/arm64/open-computer-use > open-computer-use-linux-arm64
+            rm -f ocu.tgz
+            chmod +x open-computer-use-linux-arm64
+          fi
+          cp -f debian-13.6.0-base-arm64.blob "$GITHUB_WORKSPACE/app/src/main/assets/runtime/"
+          cp -f opencode-linux-arm64 "$GITHUB_WORKSPACE/app/src/main/assets/runtime/opencode-linux-arm64.bin"
+          cp -f open-computer-use-linux-arm64 "$GITHUB_WORKSPACE/app/src/main/assets/runtime/open-computer-use-linux-arm64.bin"
 
       - name: Grant execute permission for Gradlew
         run: chmod +x gradlew
+
+      - name: Unit tests
+        run: ./gradlew :app:testDebugUnitTest --stacktrace
 
       - name: Build debug APK
         run: ./gradlew :app:assembleDebug --stacktrace
@@ -49,5 +79,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: PIRT-tigervnc-avnc-debug
+          name: PIRT-opencode-avnc-debug
           path: app/build/outputs/apk/debug/app-debug.apk

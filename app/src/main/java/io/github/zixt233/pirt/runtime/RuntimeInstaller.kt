@@ -26,7 +26,8 @@ data class RuntimeArtifact(
 
 object RuntimeArtifacts {
     const val DEBIAN_VERSION = "13.6"
-    const val PI_VERSION = "0.84.1"
+    const val OPENCODE_VERSION = "1.18.34"
+    const val OCU_VERSION = "1.2.0"
     const val PROOT_VERSION = "5.1.107.89"
     // Built from Debian 13.6 (trixie) minbase with the offline PIRT toolchain.
     val debianArm64 = RuntimeArtifact(
@@ -151,20 +152,49 @@ class RuntimeInstaller(private val context: Context, private val paths: RuntimeP
     }
 
     private fun installSupportFiles(rootfs: File) {
-        listOf("pirt-control-bridge.mjs").forEach { name ->
-            val bridge = File(rootfs, "usr/local/lib/pirt/$name")
-            bridge.parentFile?.mkdirsChecked()
-            context.assets.open("runtime/$name").use { input ->
-                FileOutputStream(bridge, false).use(input::copyTo)
-            }
-            runCatching { Os.chmod(bridge.absolutePath, 0b111101101) }
-        }
+        // OpenCode CLI (pinned arm64 glibc binary) + open-computer-use MCP
+        // binary ship as APK assets so first launch works fully offline.
+        copyAssetExecutable("runtime/opencode-linux-arm64.bin", File(rootfs, "usr/local/bin/opencode"))
+        copyAssetExecutable("runtime/open-computer-use-linux-arm64.bin", File(rootfs, "usr/local/bin/open-computer-use"))
+        seedOpenCodeConfig(rootfs)
         val wallpaper = File(rootfs, "usr/local/share/pirt/pirt-wallpaper.png")
         wallpaper.parentFile?.mkdirsChecked()
         context.assets.open("runtime/pirt-wallpaper.png").use { input ->
             FileOutputStream(wallpaper, false).use(input::copyTo)
         }
         runCatching { Os.chmod(wallpaper.absolutePath, 0b110100100) }
+    }
+
+    private fun copyAssetExecutable(assetPath: String, target: File) {
+        target.parentFile?.mkdirsChecked()
+        context.assets.open(assetPath).use { input ->
+            FileOutputStream(target, false).use(input::copyTo)
+        }
+        runCatching { Os.chmod(target.absolutePath, 0b111101101) }
+    }
+
+    /**
+     * Writes a minimal opencode.json (computer-use MCP only) when the user
+     * has no config yet. Never overwrites an existing config.
+     */
+    private fun seedOpenCodeConfig(rootfs: File) {
+        val config = File(rootfs, "root/.config/opencode/opencode.json")
+        if (config.isFile) return
+        config.parentFile?.mkdirsChecked()
+        config.writeText(
+            """{
+  "${'$'}schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "open-computer-use": {
+      "type": "local",
+      "command": ["/usr/local/bin/open-computer-use"],
+      "enabled": true
+    }
+  }
+}
+""",
+        )
+        runCatching { Os.chmod(config.absolutePath, 0b110100100) }
     }
 
     private fun copyPackagedArtifact(
@@ -346,7 +376,7 @@ class RuntimeInstaller(private val context: Context, private val paths: RuntimeP
         staging.mkdirsChecked()
     }
 
-    /** Runtime upgrades replace system files but retain Pi credentials, sessions and user files. */
+    /** Runtime upgrades replace system files but retain OpenCode credentials, sessions and user files. */
     private fun preserveUserDirectory(name: String) {
         val source = File(paths.rootfs, name)
         if (!source.exists() && !isSymlink(source)) return

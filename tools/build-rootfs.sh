@@ -34,6 +34,8 @@ APT_PACKAGES=(
   curl
   git
   python3
+  python3-gi
+  gir1.2-atspi-2.0
   xfce4
   tigervnc-standalone-server
   tigervnc-tools
@@ -41,6 +43,12 @@ APT_PACKAGES=(
   xfce4-terminal
   xfonts-base
   xdg-utils
+  ripgrep
+  jq
+  xdotool
+  scrot
+  wmctrl
+  at-spi2-core
 )
 
 log() { printf '==> %s\n' "$*"; }
@@ -170,12 +178,14 @@ EOF
     "$node_tgz" "$NODE_TARBALL_SHA256"
   sudo tar -xJf "$node_tgz" -C "$ROOTFS/usr/local" --strip-components=1
 
-  log "install ${PI_PACKAGE}@${PI_VERSION}"
-  run_chroot npm install -g "${PI_PACKAGE}@${PI_VERSION}" --ignore-scripts --omit=dev
+  log "install ${OPENCODE_PACKAGE}@${OPENCODE_VERSION} (npm, glibc linux-arm64)"
+  run_chroot npm install -g "${OPENCODE_PACKAGE}@${OPENCODE_VERSION}" --ignore-scripts --omit=dev
 
   log "sanity check"
   run_chroot test -x /usr/local/bin/node
-  run_chroot test -x /usr/local/bin/pi
+  run_chroot test -x /usr/local/bin/opencode
+  run_chroot test -x /usr/bin/rg
+  run_chroot test -x /usr/bin/jq
   run_chroot test -x /usr/bin/startxfce4
   run_chroot test -x /usr/bin/Xtigervnc
   run_chroot test -x /usr/bin/xdg-open
