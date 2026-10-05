@@ -31,7 +31,7 @@ class OcSessionManager(
             serve = serve,
             catalog = catalog,
             onIdentityChanged = ::controllerIdentityChanged,
-            onStateChanged = ::controllerChanged,
+            onStateChanged = { controllerChanged() },
             onActivityChanged = onActivityChanged,
         ).also { sessions[session.runtimeKey] = it }
         controller.adopt(session)
@@ -150,7 +150,7 @@ class OcSessionManager(
     }
 
     @Synchronized
-    private fun controllerChanged(@Suppress("UNUSED_PARAMETER") controller: OcSessionController) {
+    private fun controllerChanged() {
         publish()
         onActivityChanged()
         val selectedController = selected ?: return

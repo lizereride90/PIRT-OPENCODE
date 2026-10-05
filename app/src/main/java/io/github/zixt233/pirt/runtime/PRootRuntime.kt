@@ -331,21 +331,25 @@ class PRootRuntime(context: Context) {
         android.system.Os.chmod(target.absolutePath, 0b111101101)
     }
 
-    private fun streamingContentEquals(assetName: String, target: File): Boolean = runCatching {
-        appContext.assets.open("runtime/$assetName").use { input ->
-            target.inputStream().use { file ->
-                val a = ByteArray(64 * 1024)
-                val b = ByteArray(64 * 1024)
-                while (true) {
-                    val na = input.read(a)
-                    val nb = file.read(b)
-                    if (na != nb) return false
-                    if (na < 0) return true
-                    if (!a.copyOf(na).contentEquals(b.copyOf(nb))) return false
+    private fun streamingContentEquals(assetName: String, target: File): Boolean {
+        return try {
+            appContext.assets.open("runtime/$assetName").use { input ->
+                target.inputStream().use { file ->
+                    val a = ByteArray(64 * 1024)
+                    val b = ByteArray(64 * 1024)
+                    while (true) {
+                        val na = input.read(a)
+                        val nb = file.read(b)
+                        if (na != nb) return false
+                        if (na < 0) return true
+                        if (!a.copyOf(na).contentEquals(b.copyOf(nb))) return false
+                    }
                 }
             }
+        } catch (_: Exception) {
+            false
         }
-    }.getOrDefault(false)
+    }
 
     private fun seedSupportOpenCodeConfig() {
         val config = File(paths.rootfs, "root/.config/opencode/opencode.json")

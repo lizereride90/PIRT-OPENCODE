@@ -17,6 +17,8 @@ data class OcProvider(
     val id: String,
     val name: String,
     val configured: Boolean = false,
+    val authTypes: List<String> = emptyList(),
+    val custom: Boolean = false,
 )
 
 data class OcAuthOption(val id: String, val label: String, val description: String? = null)
@@ -82,6 +84,7 @@ class OcAuthManager(
     )
     @Volatile private var serveStarted = false
     @Volatile private var activeLoginId: String? = null
+    private val customProviderIds = mutableSetOf<String>()
     private val pendingApiKeyProvider = mutableMapOf<String, String>()
     private val pendingOauthProvider = mutableMapOf<String, String>()
 
@@ -126,14 +129,22 @@ class OcAuthManager(
                 val connected = response.optJSONArray("connected")?.let { array ->
                     (0 until array.length()).map { array.optString(it) }.toSet()
                 } ?: emptySet()
+                val authMethods = runCatching { serve.get("/provider/auth") }.getOrDefault(JSONObject())
                 val defaults = response.optJSONObject("default")
                 val providers = (0 until all.length()).mapNotNull { i ->
                     val provider = all.optJSONObject(i) ?: return@mapNotNull null
                     val id = provider.optString("id").ifBlank { return@mapNotNull null }
+                    val kinds = authMethods.optJSONArray(id)?.let { array ->
+                        (0 until array.length()).mapNotNull {
+                            array.optJSONObject(it)?.optString("type")?.takeIf(String::isNotBlank)
+                        }
+                    }.orEmpty()
                     OcProvider(
                         id = id,
                         name = provider.optString("name").ifBlank { id },
                         configured = id in connected,
+                        authTypes = (kinds + "api_key").distinct(),
+                        custom = id in customProviderIds || id.startsWith("custom"),
                     )
                 }
                 _state.update {
@@ -223,6 +234,7 @@ class OcAuthManager(
                     .put("options", JSONObject().put("baseURL", baseUrl.trim()).put("apiKey", apiKey))
                 if (modelDefs.length() > 0) entry.put("models", modelDefs)
                 serve.patch("/config", JSONObject().put("provider", JSONObject().put(id, entry)))
+                customProviderIds.add(id)
                 _state.update {
                     it.copy(
                         activity = null,
