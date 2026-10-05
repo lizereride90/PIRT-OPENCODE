@@ -13,8 +13,8 @@ android {
         applicationId = "io.github.zixt233.pirt"
         minSdk = 24
         targetSdk = 37
-        versionCode = 4
-        versionName = "0.2.0"
+        versionCode = 5
+        versionName = "0.2.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -32,6 +32,9 @@ android {
     }
     buildFeatures {
         compose = true
+        // Required by the embedded AVNC viewer library (same as tiny_container).
+        viewBinding = true
+        dataBinding = true
     }
     androidResources {
         noCompress += "blob"
@@ -57,6 +60,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.commons.compress)
+    // Embedded TigerVNC-compatible viewer (AVNC as a library, via JitPack).
+    implementation(libs.avnc)
     implementation(libs.markdown.renderer.m3)
     implementation(libs.ratex)
     testImplementation(libs.junit)

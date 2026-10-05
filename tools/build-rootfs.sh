@@ -40,8 +40,6 @@ APT_PACKAGES=(
   dbus-x11
   xfce4-terminal
   xfonts-base
-  novnc
-  websockify
   xdg-utils
 )
 
@@ -182,8 +180,6 @@ EOF
   run_chroot test -x /usr/bin/Xtigervnc
   run_chroot test -x /usr/bin/xdg-open
   run_chroot test -x /usr/bin/xfce4-terminal
-  run_chroot test -e /usr/share/novnc/vnc.html
-  run_chroot test -x /usr/bin/websockify
 
   log "trim caches"
   run_chroot apt-get clean

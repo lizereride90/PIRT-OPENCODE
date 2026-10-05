@@ -10,7 +10,7 @@ PIRT ships an arm64 Debian rootfs as a single `tar.gz` blob inside the APK asset
 
 - Git, Python 3, `xdg-utils` (`xdg-open`)
 - Minimal XFCE (`xfce4`, `--no-install-recommends`)
-- TigerVNC, noVNC, websockify
+- TigerVNC (standalone server + tools; no noVNC/websockify in this fork)
 - Node.js (pinned tarball from nodejs.org)
 - Pi coding agent (`@earendil-works/pi-coding-agent`, pinned version)
 

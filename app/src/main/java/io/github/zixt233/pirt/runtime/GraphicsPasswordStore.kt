@@ -54,6 +54,31 @@ object GraphicsPasswordStore {
         }
     }
 
+    /**
+     * Opens the TigerVNC desktop in the AVNC viewer embedded in this APK
+     * (tiny-computer AVNC library). No external app or browser needed.
+     */
+    fun openEmbedded(context: Context, port: Int, password: String): Result<Unit> = runCatching {
+        val profile = com.gaurav.avnc.model.ServerProfile().apply {
+            name = "PIRT"
+            host = "127.0.0.1"
+            this.port = port
+            this.password = password
+        }
+        val intent = com.gaurav.avnc.ui.vnc.createVncIntent(context, profile)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(intent)
+    }
+
+    fun openEmbeddedPrefs(context: Context) {
+        runCatching {
+            context.startActivity(
+                Intent(context, com.gaurav.avnc.ui.prefs.PrefsActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        }
+    }
+
     private fun generateRandom(): String = buildString(MAX_LENGTH) {
         val alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"
         repeat(MAX_LENGTH) { append(alphabet[random.nextInt(alphabet.length)]) }

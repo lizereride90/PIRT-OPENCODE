@@ -119,11 +119,11 @@ Debian 环境中启动的命令不归属于某个 Pi 会话。切换会话或离
 ```text
 XFCE on DISPLAY=:100
         ↓
-TigerVNC on 127.0.0.1:6000
+TigerVNC on 127.0.0.1:6000（VncAuth，仅本地回环）
         ↓
-websockify + noVNC on 127.0.0.1:16000
+内置 AVNC 查看器（APK 内嵌，tiny-computer/avnc 库）
 ```
 
-显示号固定为 `PRootRuntime.GRAPHICS_DISPLAY = 100`，Pi 和终端进程也会收到 `DISPLAY=:100`。VNC 与 noVNC 只监听 localhost。Android 界面既可以在浏览器中打开 noVNC，也可以把本地 VNC 地址和密码交给 aVNC 等客户端。
+显示号固定为 `PRootRuntime.GRAPHICS_DISPLAY = 100`，Pi 和终端进程也会收到 `DISPLAY=:100`。VNC 只监听 localhost。本 fork 没有 websockify/noVNC 层：Android 界面通过内置 AVNC 查看器打开桌面，也可以把本地 VNC 地址和密码交给外部客户端。
 
 PIRT 环境提示要求 Agent 在桌面检查、截图和 GUI 操作中优先使用 `DISPLAY=:100`。如果该显示不可用，Agent 应请用户从应用侧边栏启动“桌面”，而不是猜测其他显示号。

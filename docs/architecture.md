@@ -116,14 +116,14 @@ Commands started in the Debian environment are not owned by a Pi conversation. T
 
 `GraphicsManager` starts one service-owned graphics stack inside the same PRoot environment:
 
-```text
+```
 XFCE on DISPLAY=:100
         ↓
-TigerVNC on 127.0.0.1:6000
+TigerVNC on 127.0.0.1:6000 (VncAuth, localhost-only)
         ↓
-websockify + noVNC on 127.0.0.1:16000
+embedded AVNC viewer (in-APK, tiny-computer/avnc library)
 ```
 
-The display number is fixed by `PRootRuntime.GRAPHICS_DISPLAY = 100`; Pi and terminal processes also receive `DISPLAY=:100`. The VNC and noVNC listeners bind to localhost. The Android UI can open noVNC in a browser or pass the local VNC address and password to a client such as aVNC.
+The display number is fixed by `PRootRuntime.GRAPHICS_DISPLAY = 100`; Pi and terminal processes also receive `DISPLAY=:100`. The VNC listener binds to localhost. There is no websockify/noVNC layer in this fork: the Android UI opens the desktop through the embedded AVNC viewer, or passes the local VNC address and password to an external client.
 
 The PIRT environment prompt tells the Agent to prefer `DISPLAY=:100` for desktop inspection, screenshots, and GUI interaction. If that display is unavailable, it asks the user to start **Desktop** from the app sidebar rather than guessing another display.

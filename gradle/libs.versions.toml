@@ -12,6 +12,7 @@ commonsCompress = "1.28.0"
 markdownRenderer = "0.41.0"
 ratex = "0.1.14"
 json = "20240303"
+avnc = "030e6c032e"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -35,6 +36,7 @@ commons-compress = { group = "org.apache.commons", name = "commons-compress", ve
 markdown-renderer-m3 = { group = "com.mikepenz", name = "multiplatform-markdown-renderer-m3", version.ref = "markdownRenderer" }
 ratex = { group = "io.github.darriousliu", name = "ratex", version.ref = "ratex" }
 json = { group = "org.json", name = "json", version.ref = "json" }
+avnc = { group = "com.github.tiny-computer", name = "avnc", version.ref = "avnc" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

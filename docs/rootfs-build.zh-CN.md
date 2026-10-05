@@ -62,7 +62,7 @@ echo "version=$VERSION size=$SIZE sha256=$SHA256"
 版本锁在 `tools/rootfs.env`：
 
 - Debian 13.6（`trixie`）arm64 minbase（`debootstrap --variant=minbase`）
-- apt：`xfce4`、`tigervnc-standalone-server`、`novnc`、`websockify`、`xdg-utils`、`git` 等（`--no-install-recommends`）
+- apt：`xfce4`、`tigervnc-standalone-server`、`xdg-utils`、`git` 等（`--no-install-recommends`；本 fork 不再安装 `novnc`/`websockify`）
 - Node.js 官方 arm64 tarball
 - `@earendil-works/pi-coding-agent`（npm 全局安装）
 

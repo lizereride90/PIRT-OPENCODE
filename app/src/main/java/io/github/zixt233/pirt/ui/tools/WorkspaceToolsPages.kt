@@ -3,8 +3,6 @@ package io.github.zixt233.pirt.ui.tools
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -135,7 +133,7 @@ fun GraphicsPage(workspace: WorkspaceConfig, connection: RuntimeConnection) {
                 GraphicsState.Starting -> {
                     CircularProgressIndicator(Modifier.width(18.dp).height(18.dp), strokeWidth = 2.dp)
                     Spacer(Modifier.width(8.dp))
-                    Text(language.text("正在启动 TigerVNC、XFCE 和 noVNC……", "Starting TigerVNC, XFCE, and noVNC…"), modifier = Modifier.weight(1f))
+                    Text(language.text("正在启动 TigerVNC 和 XFCE……", "Starting TigerVNC and XFCE…"), modifier = Modifier.weight(1f))
                 }
                 is GraphicsState.Ready -> Text(language.text("本地图形桌面 · DISPLAY=:${current.display}", "Local desktop · DISPLAY=:${current.display}"), modifier = Modifier.weight(1f))
                 is GraphicsState.Error -> Text(language.text("启动失败：${current.message}", "Startup failed: ${current.message}"), color = MaterialTheme.colorScheme.error, modifier = Modifier.weight(1f))
@@ -192,9 +190,12 @@ fun GraphicsPage(workspace: WorkspaceConfig, connection: RuntimeConnection) {
                     Button(
                         modifier = Modifier.fillMaxWidth(),
                         onClick = {
-                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(ready.url)))
+                            GraphicsPasswordStore.openEmbedded(context, ready.vncPort, ready.password)
+                                .onFailure { error ->
+                                    Toast.makeText(context, error.message ?: "无法打开内置桌面", Toast.LENGTH_SHORT).show()
+                                }
                         },
-                    ) { Text(language.text("浏览器打开", "Open in browser")) }
+                    ) { Text(language.text("打开桌面（内置）", "Open desktop (built-in)")) }
                     Row(
                         Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -215,11 +216,15 @@ fun GraphicsPage(workspace: WorkspaceConfig, connection: RuntimeConnection) {
                             onClick = {
                                 GraphicsPasswordStore.openAvnc(context, ready.vncPort, ready.password)
                                     .onFailure { error ->
-                                        Toast.makeText(context, error.message ?: "无法打开 aVNC", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, error.message ?: "无法打开外部 VNC", Toast.LENGTH_SHORT).show()
                                     }
                             },
-                        ) { Text(language.text("用 aVNC 打开", "Open with aVNC")) }
+                        ) { Text(language.text("外部 VNC 应用", "External VNC app")) }
                     }
+                    TextButton(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = { GraphicsPasswordStore.openEmbeddedPrefs(context) },
+                    ) { Text(language.text("内置查看器设置", "Built-in viewer settings")) }
                 }
             }
         }

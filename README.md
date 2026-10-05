@@ -1,6 +1,13 @@
-# PIRT — Pi Runtime on PRoot
+# PIRT — Pi Runtime on PRoot (TigerVNC + embedded AVNC fork)
 
 **An AI-powered Linux computer in your pocket.**
+
+> Fork of [ZIXT233/PIRT](https://github.com/ZIXT233/PIRT). Changes in this fork:
+> TigerVNC-only XFCE desktop (noVNC/websockify removed) viewed through an
+> AVNC viewer embedded in the APK — no external VNC app or browser needed.
+> APKs are built by the `Build APK` GitHub Actions workflow.
+> Note: embedding AVNC (GPL-3.0) means APKs built from this fork are covered
+> by GPL-3.0; the PIRT sources themselves remain MIT.
 
 English · [简体中文](README.zh-CN.md)
 
@@ -13,7 +20,7 @@ PIRT integrates deeply with the Pi SDK to give Pi sessions a mobile-native inter
 <p align="center">
   <img src="./screenshot-desktop.jpg" width="360" alt="PIRT and aVNC running side by side in Android split-screen mode">
   <br>
-  <sub>PIRT and aVNC in Android split-screen mode. The same desktop can also be opened in a browser through noVNC.</sub>
+   <sub>PIRT desktop viewed through the embedded AVNC viewer. An external VNC app can also connect to 127.0.0.1:6000.</sub>
 </p>
 
 ## What it does
@@ -33,7 +40,7 @@ Provide the Agent with the pairing code and ports shown by Android Wireless debu
 
 ## Local runtime controls
 
-- A persistent shell and local XFCE desktop, accessible in a browser through noVNC or with VNC clients such as aVNC
+- A persistent shell and local XFCE desktop, viewed through the embedded AVNC viewer or with external VNC clients
 - Independent process creation, status inspection and termination
 - Conversation management, context/token usage and HTML export
 - Provider sign-in, OpenAI-compatible APIs and model selection

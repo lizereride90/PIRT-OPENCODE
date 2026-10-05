@@ -67,8 +67,6 @@ class PRootRuntime(context: Context) {
             !File(paths.rootfs, "usr/bin/Xtigervnc").isFile ||
             !File(paths.rootfs, "usr/bin/tigervncpasswd").isFile ||
             !File(paths.rootfs, "usr/bin/startxfce4").isFile ||
-            !File(paths.rootfs, "usr/bin/websockify").isFile ||
-            !File(paths.rootfs, "usr/share/novnc/vnc.html").isFile ||
             !File(paths.rootfs, "usr/bin/xdg-open").isFile ||
             !File(paths.rootfs, "usr/local/lib/pirt/pirt-control-bridge.mjs").isFile
         ) {
@@ -156,10 +154,11 @@ class PRootRuntime(context: Context) {
         val hostWorkspace = workspace(workspace)
         val display = GRAPHICS_DISPLAY
         val vncPort = 5900 + display
-        val webPort = 15900 + display
         val runtimeDir = "/tmp/pirt-xdg-workspace"
         val passwordFile = "/tmp/pirt-vnc-workspace.passwd"
         val logFile = "/tmp/pirt-vnc-workspace.log"
+        // TigerVNC + XFCE only. No websockify/noVNC: the desktop is viewed
+        // through the AVNC viewer embedded in this APK.
         val script = """
             set -eu
             export HOME=/root
@@ -224,7 +223,7 @@ class PRootRuntime(context: Context) {
             desktop_pid=${'$'}!
             sleep 1
             kill -0 "${'$'}desktop_pid" 2>/dev/null || { cat '$logFile'; exit 1; }
-            exec websockify --web=/usr/share/novnc 127.0.0.1:$webPort 127.0.0.1:$vncPort
+            wait "${'$'}desktop_pid"
         """.trimIndent()
         val command = listOf(
             paths.proot.absolutePath,
@@ -238,7 +237,7 @@ class PRootRuntime(context: Context) {
             "LANG=C.UTF-8",
             "/bin/bash", "-lc", script,
         )
-        return GraphicsProcessSpec(RuntimeProcessSpec(command, nativeEnvironment()), webPort, vncPort, display)
+        return GraphicsProcessSpec(RuntimeProcessSpec(command, nativeEnvironment()), vncPort, display)
     }
 
     fun probe(): Result<String> = runCatching {
@@ -342,7 +341,6 @@ data class RuntimeProcessSpec(
 
 data class GraphicsProcessSpec(
     val process: RuntimeProcessSpec,
-    val webPort: Int,
     val vncPort: Int,
     val display: Int,
 )

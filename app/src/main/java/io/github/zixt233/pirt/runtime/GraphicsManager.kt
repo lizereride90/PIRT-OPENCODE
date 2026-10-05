@@ -1,7 +1,6 @@
 package io.github.zixt233.pirt.runtime
 
 import android.content.Context
-import android.net.Uri
 import io.github.zixt233.pirt.model.WorkspaceConfig
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -12,11 +11,11 @@ import java.net.Socket
 sealed interface GraphicsState {
     data object Stopped : GraphicsState
     data object Starting : GraphicsState
-    data class Ready(val url: String, val display: Int, val vncPort: Int, val password: String) : GraphicsState
+    data class Ready(val display: Int, val vncPort: Int, val password: String) : GraphicsState
     data class Error(val message: String) : GraphicsState
 }
 
-/** Service-owned localhost-only VNC/noVNC desktop. */
+/** Service-owned localhost-only TigerVNC/XFCE desktop, viewed via embedded AVNC. */
 class GraphicsManager(
     context: Context,
     private val onActivityChanged: () -> Unit,
@@ -90,7 +89,7 @@ class GraphicsManager(
             var ready = false
             for (attempt in 0 until 100) {
                 if (!child.isRunning()) break
-                ready = canConnect(graphics.webPort)
+                ready = canConnect(graphics.vncPort)
                 if (ready) break
                 Thread.sleep(100)
             }
@@ -105,16 +104,14 @@ class GraphicsManager(
                     return@runCatching
                 }
             }
-            val query = "autoconnect=1&reconnect=1&resize=scale&shared=1&password=${Uri.encode(password)}"
             publish(
                 GraphicsState.Ready(
-                    url = "http://127.0.0.1:${graphics.webPort}/vnc.html?$query",
                     display = graphics.display,
                     vncPort = graphics.vncPort,
                     password = password,
                 )
             )
-            RuntimeDiagnostics.info(appContext, "graphics", "Ready on DISPLAY=:${graphics.display}, web port ${graphics.webPort}")
+            RuntimeDiagnostics.info(appContext, "graphics", "Ready on DISPLAY=:${graphics.display}, VNC 127.0.0.1:${graphics.vncPort}")
             val exit = child.waitFor()
             synchronized(this) {
                 if (requestGeneration == generation && process === child) {

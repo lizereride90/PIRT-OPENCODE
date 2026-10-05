@@ -1,6 +1,10 @@
-# PIRT — Pi Runtime on PRoot
+# PIRT — Pi Runtime on PRoot（TigerVNC + 内置 AVNC fork）
 
 **一台装在手机里的 AI Linux 电脑。**
+
+> 本 fork 基于 [ZIXT233/PIRT](https://github.com/ZIXT233/PIRT)：纯 TigerVNC 的 XFCE 桌面
+>（移除 noVNC/websockify），通过 APK 内嵌的 AVNC 查看器访问，无需外部 VNC 应用或浏览器。
+> APK 由 `Build APK` GitHub Actions 工作流构建。
 
 [English](README.md) · 简体中文
 
@@ -13,7 +17,7 @@ PIRT 深度集成 Pi SDK，为 Pi 会话提供移动端原生的交互体验。P
 <p align="center">
   <img src="./screenshot-desktop.jpg" width="360" alt="PIRT 与 aVNC 在 Android 分屏模式下同时运行">
   <br>
-  <sub>PIRT 与 aVNC 分屏运行；同一桌面也可以通过浏览器 noVNC 打开。</sub>
+  <sub>PIRT 桌面通过内置 AVNC 查看器访问；也可使用外部 VNC 应用连接 127.0.0.1:6000。</sub>
 </p>
 
 ## 它具体做了什么
@@ -33,7 +37,7 @@ PIRT 深度集成 Pi SDK，为 Pi 会话提供移动端原生的交互体验。P
 
 ## 本地环境控制
 
-- 持久 Shell 和本地 XFCE 桌面；既可通过浏览器 noVNC 访问，也可使用 aVNC 等 VNC 客户端
+- 持久 Shell 和本地 XFCE 桌面；通过内置 AVNC 查看器访问，也可使用外部 VNC 客户端
 - 创建、查看和停止后台独立进程
 - 会话管理、上下文与 Token 使用量及 HTML 导出
 - 服务商登录、OpenAI 兼容 API 和模型选择
