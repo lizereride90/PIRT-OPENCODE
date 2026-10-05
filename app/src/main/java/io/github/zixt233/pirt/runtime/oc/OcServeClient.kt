@@ -12,7 +12,7 @@ import org.json.JSONObject
 /**
  * Owner of the single resident `opencode serve` proot process plus a thin
  * authenticated HTTP client for its REST API. One instance lives in
- * [OcAuthManager], mirroring how PiControlClient was owned before.
+ * [OcAuthManager], which also owns the serve process.
  */
 class OcServeClient(
     private val diagnosticTag: String = "oc-serve",
