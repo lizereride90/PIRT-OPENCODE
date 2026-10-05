@@ -332,7 +332,7 @@ class PRootRuntime(context: Context) {
     }
 
     private fun streamingContentEquals(assetName: String, target: File): Boolean {
-        return try {
+        try {
             appContext.assets.open("runtime/$assetName").use { input ->
                 target.inputStream().use { file ->
                     val a = ByteArray(64 * 1024)
@@ -347,7 +347,7 @@ class PRootRuntime(context: Context) {
                 }
             }
         } catch (_: Exception) {
-            false
+            return false
         }
     }
 
