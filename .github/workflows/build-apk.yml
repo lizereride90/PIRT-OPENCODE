@@ -127,6 +127,8 @@ jobs:
           set -euo pipefail
           sudo rm -rf /tmp/pirt-rootfs && mkdir -p /tmp/pirt-rootfs
           sudo tar -xzf /tmp/pirt-guest/debian-13.6.0-base-arm64.blob -C /tmp/pirt-rootfs
+          # The guest runs as the CI user; take ownership so proot writes succeed.
+          sudo chown -R "$(id -u):$(id -g)" /tmp/pirt-rootfs
           sudo cp /tmp/pirt-guest/opencode-linux-arm64 /tmp/pirt-rootfs/usr/local/bin/opencode
           sudo cp /tmp/pirt-guest/open-computer-use-linux-arm64 /tmp/pirt-rootfs/usr/local/bin/open-computer-use
           sudo chmod 755 /tmp/pirt-rootfs/usr/local/bin/opencode /tmp/pirt-rootfs/usr/local/bin/open-computer-use
