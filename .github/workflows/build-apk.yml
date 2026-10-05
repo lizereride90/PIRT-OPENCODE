@@ -81,3 +81,85 @@ jobs:
         with:
           name: PIRT-opencode-avnc-debug
           path: app/build/outputs/apk/debug/app-debug.apk
+
+  proot-gui-check:
+    # Validates the arm64 guest stack (OpenCode CLI + open-computer-use MCP)
+    # under proot+qemu against a real X server. X protocol is
+    # arch-independent, so this genuinely exercises screenshot/input paths.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install emulation packages
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-user-static proot xvfb file > /dev/null
+
+      - name: Restore guest payload cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/pirt-guest
+          key: pirt-guest-${{ env.OPENCODE_VERSION }}-${{ env.OCU_VERSION }}-${{ env.BLOB_SHA256 }}
+
+      - name: Fetch guest payloads
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/pirt-guest
+          cd /tmp/pirt-guest
+          if [ ! -f debian-13.6.0-base-arm64.blob ]; then
+            curl -fsSL --retry 5 -o upstream-pirt.apk "$UPSTREAM_APK_URL"
+            unzip -p upstream-pirt.apk "assets/runtime/debian-13.6.0-base-arm64.blob" > debian-13.6.0-base-arm64.blob
+            rm -f upstream-pirt.apk
+          fi
+          echo "$BLOB_SHA256  debian-13.6.0-base-arm64.blob" | sha256sum -c -
+          if [ ! -f opencode-linux-arm64 ]; then
+            curl -fsSL --retry 5 -o oc.tgz "https://github.com/anomalyco/opencode/releases/download/v${OPENCODE_VERSION}/opencode-linux-arm64.tar.gz"
+            tar -xzOf oc.tgz opencode > opencode-linux-arm64
+            rm -f oc.tgz
+          fi
+          if [ ! -f open-computer-use-linux-arm64 ]; then
+            curl -fsSL --retry 5 -o ocu.tgz "https://github.com/opensymph/open-computer-use/releases/download/v${OCU_VERSION}/opensymph-open-computer-use-${OCU_VERSION}.tgz"
+            tar -xzOf ocu.tgz package/dist/linux/arm64/open-computer-use > open-computer-use-linux-arm64
+            rm -f ocu.tgz
+          fi
+
+      - name: Extract rootfs and install guest binaries
+        run: |
+          set -euo pipefail
+          sudo rm -rf /tmp/pirt-rootfs && mkdir -p /tmp/pirt-rootfs
+          sudo tar -xzf /tmp/pirt-guest/debian-13.6.0-base-arm64.blob -C /tmp/pirt-rootfs
+          sudo cp /tmp/pirt-guest/opencode-linux-arm64 /tmp/pirt-rootfs/usr/local/bin/opencode
+          sudo cp /tmp/pirt-guest/open-computer-use-linux-arm64 /tmp/pirt-rootfs/usr/local/bin/open-computer-use
+          sudo chmod 755 /tmp/pirt-rootfs/usr/local/bin/opencode /tmp/pirt-rootfs/usr/local/bin/open-computer-use
+          file /tmp/pirt-rootfs/usr/local/bin/opencode /tmp/pirt-rootfs/usr/local/bin/open-computer-use
+
+      - name: Start Xvfb
+        run: |
+          set -euo pipefail
+          Xvfb :99 -screen 0 1280x800x24 -ac &
+          sleep 3
+          ls /tmp/.X11-unix/
+
+      - name: OpenCode CLI smoke test (arm64 under qemu)
+        run: |
+          set -euo pipefail
+          proot -r /tmp/pirt-rootfs -q qemu-aarch64-static \
+            -b /dev -b /proc -b /sys -w /root \
+            /usr/bin/env -i HOME=/root PATH=/usr/local/bin:/usr/bin:/bin \
+            /usr/local/bin/opencode --version
+
+      - name: computer-use screenshot + pointer (arm64 under qemu)
+        run: |
+          set -euo pipefail
+          sudo mkdir -p /tmp/pirt-rootfs/tmp/ocu-out
+          sudo chmod 777 /tmp/pirt-rootfs/tmp/ocu-out
+          proot -r /tmp/pirt-rootfs -q qemu-aarch64-static \
+            -b /dev -b /proc -b /sys -b /tmp/.X11-unix \
+            -w /root /usr/bin/env -i HOME=/root PATH=/usr/local/bin:/usr/bin:/bin DISPLAY=:99 \
+            /usr/local/bin/open-computer-use screenshot --output /tmp/ocu-out/shot.png
+          proot -r /tmp/pirt-rootfs -q qemu-aarch64-static \
+            -b /dev -b /proc -b /sys -b /tmp/.X11-unix \
+            -w /root /usr/bin/env -i HOME=/root PATH=/usr/local/bin:/usr/bin:/bin DISPLAY=:99 \
+            /usr/local/bin/open-computer-use cursor-position
+          ls -la /tmp/pirt-rootfs/tmp/ocu-out/
+          test -s /tmp/pirt-rootfs/tmp/ocu-out/shot.png
+          python3 -c "open('/tmp/pirt-rootfs/tmp/ocu-out/shot.png','rb').read(8) == b'\x89PNG\r\n\x1a\n' or exit('not a PNG')"
