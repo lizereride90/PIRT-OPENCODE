@@ -6,13 +6,14 @@ plugins {
 android {
     namespace = "io.github.zixt233.pirt"
     compileSdk {
-        version = release(37)
+        // 37 is preview-only (unpublished); 36 builds the same code.
+        version = release(36)
     }
 
     defaultConfig {
         applicationId = "io.github.zixt233.pirt"
         minSdk = 24
-        targetSdk = 37
+        targetSdk = 36
         versionCode = 5
         versionName = "0.2.1"
 
