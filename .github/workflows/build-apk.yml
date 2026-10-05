@@ -142,7 +142,7 @@ jobs:
       - name: OpenCode CLI smoke test (arm64 under qemu)
         run: |
           set -euo pipefail
-          proot -r /tmp/pirt-rootfs -q qemu-aarch64-static \
+          proot -r /tmp/pirt-rootfs -q qemu-aarch64-static -0 \
             -b /dev -b /proc -b /sys -w /root \
             /usr/bin/env -i HOME=/root PATH=/usr/local/bin:/usr/bin:/bin \
             /usr/local/bin/opencode --version
@@ -152,11 +152,11 @@ jobs:
           set -euo pipefail
           sudo mkdir -p /tmp/pirt-rootfs/tmp/ocu-out
           sudo chmod 777 /tmp/pirt-rootfs/tmp/ocu-out
-          proot -r /tmp/pirt-rootfs -q qemu-aarch64-static \
+          proot -r /tmp/pirt-rootfs -q qemu-aarch64-static -0 \
             -b /dev -b /proc -b /sys -b /tmp/.X11-unix \
             -w /root /usr/bin/env -i HOME=/root PATH=/usr/local/bin:/usr/bin:/bin DISPLAY=:99 \
             /usr/local/bin/open-computer-use screenshot --output /tmp/ocu-out/shot.png
-          proot -r /tmp/pirt-rootfs -q qemu-aarch64-static \
+          proot -r /tmp/pirt-rootfs -q qemu-aarch64-static -0 \
             -b /dev -b /proc -b /sys -b /tmp/.X11-unix \
             -w /root /usr/bin/env -i HOME=/root PATH=/usr/local/bin:/usr/bin:/bin DISPLAY=:99 \
             /usr/local/bin/open-computer-use cursor-position
