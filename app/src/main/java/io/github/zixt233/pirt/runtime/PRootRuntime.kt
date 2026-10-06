@@ -61,17 +61,21 @@ class PRootRuntime(context: Context) {
         if (!prepareSupportFiles()) {
             return RuntimeState.NotInstalled("Could not prepare OpenCode runtime support files")
         }
-        if (!File(paths.rootfs, "usr/local/bin/opencode").isFile ||
-            !File(paths.rootfs, "usr/local/bin/open-computer-use").isFile ||
-            !File(paths.rootfs, "usr/local/bin/node").isFile ||
-            !File(paths.rootfs, "usr/bin/git").isFile ||
-            !File(paths.rootfs, "usr/bin/rg").isFile ||
-            !File(paths.rootfs, "usr/bin/Xtigervnc").isFile ||
-            !File(paths.rootfs, "usr/bin/tigervncpasswd").isFile ||
-            !File(paths.rootfs, "usr/bin/startxfce4").isFile ||
-            !File(paths.rootfs, "usr/bin/xdg-open").isFile
-        ) {
-            return RuntimeState.NotInstalled("开发工具安装不完整")
+        // NOTE: ripgrep is NOT required here: the bundled rootfs predates the
+        // recipe that adds it, and OpenCode runs fine without it (search degraded).
+        val required = listOf(
+            "usr/local/bin/opencode",
+            "usr/local/bin/open-computer-use",
+            "usr/local/bin/node",
+            "usr/bin/git",
+            "usr/bin/Xtigervnc",
+            "usr/bin/tigervncpasswd",
+            "usr/bin/startxfce4",
+            "usr/bin/xdg-open",
+        )
+        val missing = required.firstOrNull { !File(paths.rootfs, it).isFile }
+        if (missing != null) {
+            return RuntimeState.NotInstalled("开发工具安装不完整（缺少 $missing）")
         }
         return RuntimeState.Ready
     }
